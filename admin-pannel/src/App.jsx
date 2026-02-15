@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import Navbar from './components/Navbar/Navbar';
+import Dashboard from './components/Dashboard/Dashboard';
 import './App.css';
 
 function App() {
@@ -22,11 +23,12 @@ function App() {
         
         <main className="main-content">
           <div className="content-container">
-            <h1>Dashboard Overview</h1>
-            <p>Your analytics and management tools are ready.</p>
+             <Dashboard /> 
           </div>
         </main>
       </div>
+
+     
     </div>
   );
 }

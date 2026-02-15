@@ -6,7 +6,7 @@ function Navbar({ onHamburgerClick }) {
     <nav className="main-navbar">
       <div className="nav-section left">
         <button className="mobile-btn" onClick={onHamburgerClick}>☰</button>
-        <div className="brand-logo">Prodcut of GC</div>
+        <div className="brand-logo">AP</div>
       </div>
 
       <div className="nav-section middle">
@@ -16,7 +16,7 @@ function Navbar({ onHamburgerClick }) {
       <div className="nav-section right">
         <div className="profile-pill">
           <div className="text-right">
-            <p className="p-name">Alex Admin</p>
+            <p className="p-name">Admin Tarek</p>
             <p className="p-role">Root User</p>
           </div>
           <div className="p-avatar">AA</div>
