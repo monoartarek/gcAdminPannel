@@ -5,14 +5,14 @@ import './Sidebar.css';
 function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }) {
   const [openSub, setOpenSub] = useState(null);
 
-  // Full structured menu with paths
+  // Full structured menu with FontAwesome classes
   const menu = [
-    { title: 'Dashboard', icon: '🏠', path: '/' },
-    { title: 'Market Coins', icon: '🪙', path: '/market-coins' },
+    { title: 'Dashboard', icon: 'fas fa-home', path: '/' },
+    { title: 'Market Coins', icon: 'fas fa-coins', path: '/market-coins' },
 
     {
       title: 'Manager',
-      icon: '🛡️',
+      icon: 'fas fa-user-shield',
       sub: [
         { label: 'Make/Remove Manager', path: '/manager/create' },
         { label: 'All Managers', path: '/manager/all' }
@@ -21,7 +21,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Reseller',
-      icon: '🤝',
+      icon: 'fas fa-user',
       sub: [
         { label: 'Make/Remove Reseller', path: '/reseller/create' },
         { label: 'All Resellers', path: '/reseller/all' }
@@ -30,7 +30,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Users',
-      icon: '👤',
+      icon: 'fas fa-users',
       sub: [
         { label: 'All Users', path: '/users/all' },
         { label: 'Blocked Users', path: '/users/blocked' }
@@ -39,7 +39,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'HOST/Agency',
-      icon: '🏢',
+      icon: 'fas fa-building',
       sub: [
         { label: 'All Earning', path: '/host/earning' },
         { label: 'All Agency', path: '/host/agency' },
@@ -49,7 +49,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'App Admin',
-      icon: '⚙️',
+      icon: 'fas fa-cogs',
       sub: [
         { label: 'Make App Admin', path: '/app-admin/create' },
         { label: 'Just Admins', path: '/app-admin/list' },
@@ -57,20 +57,20 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       ]
     },
 
-    { title: 'Rocket', icon: '🚀', path: '/rocket' },
-    { title: 'Messages', icon: '📩', path: '/messages' },
-    { title: 'Posts', icon: '📝', path: '/posts' },
-    { title: 'Comments', icon: '💬', path: '/comments' },
-    { title: 'Banner Image', icon: '🖼️', path: '/banner-image' },
-    { title: 'Splash Banner', icon: '⚡', path: '/splash-banner' },
-    { title: 'Live Bonus', icon: '🎁', path: '/live-bonus' },
-    { title: 'Live Streams', icon: '🎥', path: '/live-streams' },
-    { title: 'Top Streams', icon: '🔥', path: '/top-streams' },
-    { title: 'Stories', icon: '📱', path: '/stories' },
+    { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket' },
+    { title: 'Messages', icon: 'fas fa-envelope', path: '/messages' },
+    { title: 'Posts', icon: 'fas fa-file-alt', path: '/posts' },
+    { title: 'Comments', icon: 'fas fa-comments', path: '/comments' },
+    { title: 'Banner Image', icon: 'fas fa-image', path: '/banner-image' },
+    { title: 'Splash Banner', icon: 'fas fa-bolt', path: '/splash-banner' },
+    { title: 'Live Bonus', icon: 'fas fa-gift', path: '/live-bonus' },
+    { title: 'Live Streams', icon: 'fas fa-video', path: '/live-streams' },
+    { title: 'Top Streams', icon: 'fas fa-star', path: '/top-streams' },
+    { title: 'Stories', icon: 'fas fa-film', path: '/stories' },
 
     {
       title: 'Gifts',
-      icon: '🧧',
+      icon: 'fas fa-gift',
       sub: [
         { label: 'All Gifts', path: '/gifts/all' },
         { label: 'Add New Gift', path: '/gifts/add' }
@@ -79,7 +79,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'VIP',
-      icon: '💎',
+      icon: 'fas fa-gem',
       sub: [
         { label: 'All Assets', path: '/vip/all' },
         { label: 'Add New Assets', path: '/vip/add' }
@@ -88,7 +88,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Avatar Frame',
-      icon: '🖼️',
+      icon: 'fas fa-image',
       sub: [
         { label: 'All Avatar Frame', path: '/avatar/all' },
         { label: 'Add New Avatar Frame', path: '/avatar/add' }
@@ -97,7 +97,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Party Theme',
-      icon: '🎉',
+      icon: 'fas fa-palette',
       sub: [
         { label: 'All Party Themes', path: '/party/all' },
         { label: 'Add New Party Theme', path: '/party/add' }
@@ -106,7 +106,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Entrance Effect',
-      icon: '✨',
+      icon: 'fas fa-magic',
       sub: [
         { label: 'All Entrance Effects', path: '/entrance/all' },
         { label: 'Add New Entrance Effects', path: '/entrance/add' }
@@ -115,20 +115,20 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Official Announcement',
-      icon: '📢',
+      icon: 'fas fa-bullhorn',
       sub: [
         { label: 'All Announcements', path: '/announcement/all' },
         { label: 'Add New Announcement', path: '/announcement/add' }
       ]
     },
 
-    { title: 'Game History', icon: '🎮', path: '/game-history' },
-    { title: 'Agora Settings', icon: '🔧', path: '/agora-settings' },
-    { title: 'Payments', icon: '💳', path: '/payments' },
+    { title: 'Game History', icon: 'fas fa-gamepad', path: '/game-history' },
+    { title: 'Agora Settings', icon: 'fas fa-cogs', path: '/agora-settings' },
+    { title: 'Payments', icon: 'fas fa-hand-holding-usd', path: '/payments' },
 
     {
       title: 'Payouts',
-      icon: '💰',
+      icon: 'fas fa-money-bill-wave',
       sub: [
         { label: 'All Payouts', path: '/payouts/all' },
         { label: 'Pending', path: '/payouts/pending' },
@@ -136,11 +136,11 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       ]
     },
 
-    { title: 'Reports', icon: '📊', path: '/reports' },
+    { title: 'Reports', icon: 'fas fa-chart-line', path: '/reports' },
 
     {
       title: 'Advertising',
-      icon: '📺',
+      icon: 'fas fa-tv',
       sub: [
         { label: 'My Ads', path: '/ads/my' },
         { label: 'Create New Ad', path: '/ads/create' },
@@ -150,16 +150,12 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
   ];
 
   const handleToggleSub = (title) => {
-    if (isCollapsed) {
-      setIsCollapsed(false);
-      setOpenSub(title);
-    } else {
-      setOpenSub(openSub === title ? null : title);
-    }
+    setOpenSub(openSub === title ? null : title);
   };
 
   return (
     <>
+      {/* Backdrop for mobile */}
       <div
         className={`sidebar-backdrop ${isMobileOpen ? 'show' : ''}`}
         onClick={() => setIsMobileOpen(false)}
@@ -170,7 +166,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
           <button
             className="arrow-toggle"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            title={isCollapsed ? "Expand" : "Collapse"}
+            title={isCollapsed ? 'Expand' : 'Collapse'}
           >
             {isCollapsed ? '→' : '←'}
           </button>
@@ -180,38 +176,34 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
           {menu.map(item => (
             <div key={item.title} className="menu-block">
 
-              {/* Main Item without submenu */}
-              {!item.sub && (
+              {!item.sub ? (
                 <NavLink
                   to={item.path}
                   className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setIsMobileOpen(false)}
                 >
-                  <span className="icon">{item.icon}</span>
+                  <i className={item.icon}></i>
                   {!isCollapsed && <span className="label">{item.title}</span>}
                 </NavLink>
-              )}
-
-              {/* Item with submenu */}
-              {item.sub && (
+              ) : (
                 <>
                   <div
                     className={`menu-item ${openSub === item.title ? 'active' : ''}`}
                     onClick={() => handleToggleSub(item.title)}
                   >
-                    <span className="icon">{item.icon}</span>
+                    <i className={item.icon}></i>
                     {!isCollapsed && <span className="label">{item.title}</span>}
-                    {!isCollapsed && (
-                      <span className="chevron">{openSub === item.title ? '▾' : '▸'}</span>
-                    )}
+                    {!isCollapsed && <span className="chevron">{openSub === item.title ? '▾' : '▸'}</span>}
                   </div>
 
-                  {openSub === item.title && !isCollapsed && (
+                  {openSub === item.title && (
                     <div className="submenu">
                       {item.sub.map(subItem => (
                         <NavLink
                           key={subItem.path}
                           to={subItem.path}
                           className={({ isActive }) => `sub-item ${isActive ? 'active' : ''}`}
+                          onClick={() => setIsMobileOpen(false)}
                         >
                           {subItem.label}
                         </NavLink>
