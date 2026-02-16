@@ -1,3 +1,10 @@
+import DashBoard from "../components/Dashboard/Dashboard";
+
 export default function Dashboard() {
-  return <h1>Dashboard Page is loading</h1>;
+  return (
+    <>
+      <DashBoard />
+
+    </>
+  );
 }
