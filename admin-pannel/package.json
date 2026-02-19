@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "parse": "^8.1.0",
+    "parse": "^4.3.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^6.30.3"
