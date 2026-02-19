@@ -1,9 +1,11 @@
+/* Dashboard.css */
 .dashboard-container {
   padding: 20px;
   background-color: #1f1f1f;
   min-height: 100vh;
   color: #fff;
   font-family: Arial, sans-serif;
+  box-sizing: border-box;
 }
 
 .table-title {
@@ -13,10 +15,19 @@
   color: #fff;
   margin-bottom: 15px;
   font-weight: bold;
+  font-size: clamp(14px, 2.5vw, 20px);
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
 }
 
 .dashboard-table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
   background-color: #2a2a2a;
 }
@@ -26,11 +37,14 @@
   padding: 12px 15px;
   text-align: left;
   border-bottom: 1px solid #444;
+  white-space: nowrap;
+  font-size: clamp(12px, 1.5vw, 15px);
 }
 
 .dashboard-table th {
   font-weight: bold;
   color: #fff;
+  background-color: #333;
 }
 
 .dashboard-table tr:hover {
@@ -41,13 +55,167 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .avatar-placeholder {
-  padding: 5px 10px;
-  background-color: #4db6ac;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #6a0dad;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
   color: #fff;
+}
+
+/* ── MOBILE ── */
+@media (max-width: 640px) {
+  .dashboard-container {
+    padding: 0;
+    margin: 0;
+  }
+
+  .table-title {
+    margin: 0;
+    border-radius: 0;
+    font-size: 16px;
+    padding: 12px 14px;
+  }
+
+  .table-wrapper {
+    overflow-x: unset;
+    border-radius: 0;
+  }
+
+  /* Hide real table structure */
+  .dashboard-table,
+  .dashboard-table thead,
+  .dashboard-table tbody,
+  .dashboard-table th,
+  .dashboard-table td,
+  .dashboard-table tr {
+    display: block;
+    min-width: unset;
+  }
+
+  .dashboard-table {
+    background: transparent;
+  }
+
+  .dashboard-table thead {
+    display: none;
+  }
+
+  /* Each row = a card */
+  .dashboard-table tbody tr {
+    background-color: #2a2a2a;
+    border-bottom: 4px solid #1f1f1f;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .dashboard-table tbody tr:hover {
+    background-color: #333;
+  }
+
+  /* Avatar cell — centered banner at top of card */
+  .dashboard-table td:first-child {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px 0 12px;
+    border-bottom: 1px solid #3a3a3a;
+    width: 100%;
+  }
+
+  .dashboard-table td:first-child::before {
+    display: none;
+  }
+
+  .avatar-img {
+    width: 70px;
+    height: 70px;
+  }
+
+  .avatar-placeholder {
+    width: 70px;
+    height: 70px;
+    font-size: 26px;
+  }
+
+  /* All other cells — label + value in a full-width row */
+  .dashboard-table td {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid #3a3a3a;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: normal;
+    word-break: break-word;
+    gap: 0;
+  }
+
+  .dashboard-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* Label from data-label */
+  .dashboard-table td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    color: #aaa;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+}
+
+.search-wrapper {
+  width: 100%;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border 0.2s;
+}
+
+.search-input::placeholder {
+  color: #888;
+}
+
+.search-input:focus {
+  border-color: #6a0dad;
+}
+
+@media (max-width: 640px) {
+  .search-wrapper {
+    padding: 10px 0;
+    margin-bottom: 0;
+  }
+
+  .search-input {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    font-size: 14px;
+  }
 }

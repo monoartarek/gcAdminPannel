@@ -5,6 +5,8 @@ import Parse from "../../parseConfig";
 
 export default function Dashboard() {
   const [users, setUsers] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function Dashboard() {
           const birthdayRaw = user.get("birthday");
           let birthday = "N/A";
           if (birthdayRaw) {
-            birthday = new Date(birthdayRaw).toLocaleDateString("en-GB"); // e.g. 31/12/1998
+            birthday = new Date(birthdayRaw).toLocaleDateString("en-GB");
           }
 
           const locationRaw = user.get("location");
@@ -54,6 +56,7 @@ export default function Dashboard() {
         });
 
         setUsers(userData);
+        setFiltered(userData);
       } catch (error) {
         console.error("Error fetching users:", error);
       } finally {
@@ -64,77 +67,77 @@ export default function Dashboard() {
     fetchUsers();
   }, []);
 
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearch(value);
+    const filteredData = users.filter((user) =>
+      user.username.toLowerCase().includes(value.toLowerCase())
+    );
+    setFiltered(filteredData);
+  };
+
   return (
     <div className="dashboard-container">
       <h2 className="table-title">Latest Users</h2>
-      <table className="dashboard-table">
-        <thead>
-          <tr>
-            <th>Avatar</th>
-            <th>Name</th>
-            <th>Username</th>
-            <th>Gender</th>
-            <th>Birthday</th>
-            <th>Location</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
+
+      <div className="search-wrapper">
+        <input
+          type="text"
+          className="search-input"
+          placeholder="🔍 Search by username..."
+          value={search}
+          onChange={handleSearch}
+        />
+      </div>
+
+      <div className="table-wrapper">
+        <table className="dashboard-table">
+          <thead>
             <tr>
-              <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
-                Loading users...
-              </td>
+              <th>Avatar</th>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Gender</th>
+              <th>Birthday</th>
+              <th>Location</th>
             </tr>
-          ) : users.length === 0 ? (
-            <tr>
-              <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
-                No users found.
-              </td>
-            </tr>
-          ) : (
-            users.map((user, index) => (
-              <tr key={index}>
-                <td>
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt="avatar"
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        background: "#ccc",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "14px",
-                        color: "#fff",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {user.name?.charAt(0).toUpperCase() || "?"}
-                    </div>
-                  )}
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
+                  Loading users...
                 </td>
-                <td>{user.name}</td>
-                <td>{user.username}</td>
-                <td>{user.gender}</td>
-                <td>{user.birthday}</td>
-                <td>{user.location}</td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
+                  {search ? `No users found for "${search}"` : "No users found."}
+                </td>
+              </tr>
+            ) : (
+              filtered.map((user, index) => (
+                <tr key={index}>
+                  <td data-label="Avatar">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt="avatar" className="avatar-img" />
+                    ) : (
+                      <div className="avatar-placeholder">
+                        {user.name?.charAt(0).toUpperCase() || "?"}
+                      </div>
+                    )}
+                  </td>
+                  <td data-label="Name">{user.name}</td>
+                  <td data-label="Username">{user.username}</td>
+                  <td data-label="Gender">{user.gender}</td>
+                  <td data-label="Birthday">{user.birthday}</td>
+                  <td data-label="Location">{user.location}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
