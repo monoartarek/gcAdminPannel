@@ -10,7 +10,7 @@ import MarketCoins from './Pages/MarketCoins';
 import AllUsers from './Pages/AllUsers';
 import BlockedUsers from './Pages/BlockedUsers';
 import AllManagers from './Pages/AllManagers';
-import MakeManager from './Pages/MakeManager';
+import MakeManager from './Pages/MakeOrRemoveManager';
 
 import './App.css';
 
@@ -43,7 +43,7 @@ function App() {
               <Route path="/users/blocked" element={<BlockedUsers />} />
 
               <Route path="/managers/all" element={<AllManagers />} />
-              <Route path="/managers/create" element={<MakeManager />} />
+              <Route path="/manager/create" element={<MakeManager />} />
             </Routes>
 
           </div>
