@@ -6,7 +6,7 @@ function Navbar({ onHamburgerClick }) {
     <nav className="main-navbar">
       <div className="nav-section left">
         <button className="mobile-btn" onClick={onHamburgerClick}>☰</button>
-        <div className="brand-logo">AP</div>
+        <div className="brand-logo">LOGO</div>
       </div>
 
       <div className="nav-section middle">
