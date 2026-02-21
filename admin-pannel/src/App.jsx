@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
-
 import Sidebar from './components/Sidebar/Sidebar';
 import Navbar from './components/Navbar/Navbar';
 
@@ -12,46 +11,85 @@ import BlockedUsers from './Pages/BlockedUsers';
 import AllManagers from './Pages/AllManagers';
 import MakeManager from './Pages/MakeOrRemoveManager';
 
+import Login from './Pages/Login';
+
+import ProtectedRoute from './components/ProtectedRoute';
+
 import './App.css';
+import Profile from "./Pages/Profile";
 
 function App() {
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+
   return (
-    <div className="app-wrapper">
 
-      <Navbar onHamburgerClick={() => setIsMobileOpen(!isMobileOpen)} />
+    <Routes>
 
-      <div className={`layout-body ${isCollapsed ? 'collapsed' : ''}`}>
+      {/* LOGIN ROUTE */}
+      <Route path="/login" element={<Login />} />
 
-        <Sidebar 
-          isCollapsed={isCollapsed}
-          setIsCollapsed={setIsCollapsed}
-          isMobileOpen={isMobileOpen}
-          setIsMobileOpen={setIsMobileOpen}
-        />
 
-        <main className="main-content">
-          <div className="content-container">
+      {/* PROTECTED ROUTES */}
+      <Route path="/*" element={
 
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/market-coins" element={<MarketCoins />} />
+        <ProtectedRoute>
 
-              <Route path="/users/all" element={<AllUsers />} />
-              <Route path="/users/blocked" element={<BlockedUsers />} />
+          <div className="app-wrapper">
 
-              <Route path="/managers/all" element={<AllManagers />} />
-              <Route path="/manager/create" element={<MakeManager />} />
-            </Routes>
+            <Navbar
+              onHamburgerClick={() =>
+                setIsMobileOpen(!isMobileOpen)
+              }
+            />
+
+            <div className={`layout-body ${isCollapsed ? 'collapsed' : ''}`}>
+
+              <Sidebar
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+                isMobileOpen={isMobileOpen}
+                setIsMobileOpen={setIsMobileOpen}
+              />
+
+              <main className="main-content">
+
+                <div className="content-container">
+
+                  <Routes>
+
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/market-coins" element={<MarketCoins />} />
+
+                    <Route path="/users/all" element={<AllUsers />} />
+
+                    <Route path="/users/blocked" element={<BlockedUsers />} />
+
+                    <Route path="/managers/all" element={<AllManagers />} />
+
+                    <Route path="/manager/create" element={<MakeManager />} />
+
+                  </Routes>
+
+                </div>
+
+              </main>
+
+            </div>
 
           </div>
-        </main>
 
-      </div>
-    </div>
+        </ProtectedRoute>
+
+      } />
+
+    </Routes>
+
   );
+
 }
 
 export default App;

@@ -11,7 +11,7 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-// আপনার চাহিদা অনুযায়ী সাইজ ৫০ সেট করা হলো
+// number of user in a page is 10
 const PAGE_SIZE = 10;
 
 export default function MakeOrRemoveManager() {
@@ -49,7 +49,7 @@ export default function MakeOrRemoveManager() {
 
       const userData = allResults.map((user) => ({
         objectId: user.objectId,
-        // এখানে নিশ্চিত করা হয়েছে যে uid না থাকলে objectId ব্যবহার হবে
+        // uid na thakle object id use korbe 
         uid: String(user.uid || user.objectId), 
         name: user.name || "N/A",
         username: user.username || "N/A",
@@ -71,7 +71,7 @@ export default function MakeOrRemoveManager() {
     fetchAllUsers();
   }, [fetchAllUsers]);
 
-  // UID দিয়ে সার্চ করার লজিক আপডেট করা হয়েছে
+  // UID diye search korar logic 
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearch(value);
@@ -127,7 +127,7 @@ export default function MakeOrRemoveManager() {
     }
   };
 
-  // Pagination লজিক: ৫০ জন ক্রস করলেই totalPages ১ এর বেশি হবে
+  // Pagination 10 jon cross korle page 1 er beshi hobe
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginatedUsers = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -211,7 +211,7 @@ export default function MakeOrRemoveManager() {
         </table>
       </div>
 
-      {/* Pagination Section: শুধুমাত্র ৫০ জনের বেশি ইউজার থাকলে দেখাবে */}
+      {/* Pagination Section: 10 er beshi user thakle dekhabe */}
       {totalPages > 1 && (
         <div className="pagination">
           <button className="page-btn" onClick={() => handlePageChange(page - 1)} disabled={page === 0}>
