@@ -1,7 +1,7 @@
 .main-navbar {
   height: var(--nav-height);
-  background: #ffffff;
-  display: flex;
+  background: #020024;
+  background: linear-gradient(273deg,rgba(2, 0, 36, 1) 0%, rgba(9, 9, 121, 1) 50%, rgba(0, 212, 255, 1) 100%);  display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 25px;
@@ -30,13 +30,15 @@
 }
 
 .admin-tag {
-  background: #eef2ff;
-  color: var(--accent);
+  background: #ffffff16;
+  /* color: var(--accent); */
+  color: white;
   padding: 4px 12px;
   border-radius: 8px;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
+  font-size: 16px;
 }
 
 .profile-pill {

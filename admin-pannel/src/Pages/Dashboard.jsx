@@ -1,10 +1,11 @@
-import DashBoard from "../components/Dashboard/Dashboard";
 
-export default function Dashboard() {
+import React from "react";
+import Dashboard from "../components/Dashboard/Dashboard"; // adjust the path
+
+export default function DashboardPage() {
   return (
-    <>
-      <DashBoard />
-
-    </>
+    <div >
+      <Dashboard />
+    </div>
   );
 }

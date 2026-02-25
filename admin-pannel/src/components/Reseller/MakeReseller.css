@@ -1,0 +1,213 @@
+.reseller-page {
+  padding: 20px;
+  background: #1f1f1f;
+  min-height: 100vh;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.reseller-header {
+  background: linear-gradient(90deg, #6a0dad, #4a90e2);
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.search-box {
+  margin-bottom: 15px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: white;
+  font-size: 14px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.reseller-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #2a2a2a;
+  min-width: 900px;
+}
+
+.reseller-table th,
+.reseller-table td {
+  padding: 10px;
+  border-bottom: 1px solid #444;
+  text-align: left;
+  font-size: 14px;
+}
+
+.reseller-table tr:hover {
+  background: #333;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.coin-btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.plus {
+  background: #4caf50;
+  color: white;
+}
+
+.minus {
+  background: #e53935;
+  color: white;
+}
+
+.reseller-btn {
+  background: #6a0dad;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pagination button {
+  padding: 6px 12px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pagination .active {
+  background: #6a0dad;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.center {
+  text-align: center;
+  padding: 20px;
+}
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 768px) {
+  .reseller-table {
+    min-width: unset;
+  }
+
+  .reseller-table th,
+  .reseller-table td {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .reseller-btn,
+  .coin-btn {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+
+  .search-box input {
+    font-size: 13px;
+    padding: 8px;
+  }
+}
+
+/* ── SMALL SCREEN / MOBILE ── */
+@media (max-width: 480px) {
+  .reseller-table,
+  .reseller-table thead,
+  .reseller-table tbody,
+  .reseller-table th,
+  .reseller-table td,
+  .reseller-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .reseller-table thead {
+    display: none;
+  }
+
+  .reseller-table tbody tr {
+    margin-bottom: 15px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .reseller-table td {
+    padding: 8px 10px;
+    text-align: left;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .reseller-table td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    color: #aaa;
+    font-size: 12px;
+  }
+
+  /* Buttons full width */
+  .coin-btn,
+  .reseller-btn {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* Make increment/decrement buttons and reseller button stacked */
+  td[data-label="+ Coin"],
+  td[data-label="- Coin"],
+  td[data-label="Action"] {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  td[data-label="+ Coin"] button,
+  td[data-label="- Coin"] button,
+  td[data-label="Action"] button {
+    flex: 1 1 45%;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
