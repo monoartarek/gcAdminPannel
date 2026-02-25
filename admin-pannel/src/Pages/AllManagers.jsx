@@ -1,3 +1,10 @@
+import React from "react";
+import ManagerManagement from "../components/Manager/AllManagers";// adjust the path
+
 export default function AllManagers() {
-  return <h1>All Managers Page</h1>;
+  return (
+    <div >
+      <ManagerManagement />
+    </div>
+  );
 }

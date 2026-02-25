@@ -1,0 +1,91 @@
+.manager-page {
+  padding: 20px;
+  background: #1f1f1f;
+  min-height: 100vh;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.manager-header {
+  background: linear-gradient(90deg, #6a0dad, #4a90e2);
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.search-box {
+  margin-bottom: 15px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: white;
+  font-size: 14px;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: #6a0dad;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.manager-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #2a2a2a;
+}
+
+.manager-table th,
+.manager-table td {
+  padding: 12px;
+  border-bottom: 1px solid #444;
+  text-align: left;
+}
+
+.manager-table th {
+  background: #333;
+}
+
+.manager-table tr:hover {
+  background: #3a3a3a;
+}
+
+.role-badge {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  border: 1px solid #4caf50;
+}
+
+.remove-btn {
+  background: #e53935;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.remove-btn:hover {
+  opacity: 0.85;
+}
+
+.remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.center {
+  text-align: center;
+  padding: 30px;
+}

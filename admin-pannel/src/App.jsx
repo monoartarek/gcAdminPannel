@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
+//component import 
 import Sidebar from './components/Sidebar/Sidebar';
 import Navbar from './components/Navbar/Navbar';
 
+//pages import 
 import Dashboard from './Pages/Dashboard';
 import MarketCoins from './Pages/MarketCoins';
 import AllUsers from './Pages/AllUsers';
 import BlockedUsers from './Pages/BlockedUsers';
 import AllManagers from './Pages/AllManagers';
 import MakeManager from './Pages/MakeOrRemoveManager';
+
 
 import Login from './Pages/Login';
 
@@ -61,16 +64,20 @@ function App() {
                   <Routes>
 
                     <Route path="/" element={<Dashboard />} />
+
                     <Route path="/profile" element={<Profile />} />
+                    
                     <Route path="/market-coins" element={<MarketCoins />} />
 
                     <Route path="/users/all" element={<AllUsers />} />
 
                     <Route path="/users/blocked" element={<BlockedUsers />} />
 
-                    <Route path="/managers/all" element={<AllManagers />} />
+                    {/* <Route path="/managers/all" element={<AllManagers />} /> */}
 
                     <Route path="/manager/create" element={<MakeManager />} />
+
+                    <Route path="/manager/all" element={<AllManagers />} />
 
                   </Routes>
 
