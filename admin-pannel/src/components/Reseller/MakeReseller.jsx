@@ -79,7 +79,7 @@ export default function ResellerManagement() {
     setFiltered(result);
   };
 
-  // Update Coins on Parse Server
+  // ---------Update Coins on Parse Server-------
   const updateCoins = async (user, type) => {
     const input = prompt("Enter amount:");
     if (!input) return;
