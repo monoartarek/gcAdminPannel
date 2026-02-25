@@ -12,6 +12,7 @@ import AllUsers from './Pages/AllUsers';
 import BlockedUsers from './Pages/BlockedUsers';
 import AllManagers from './Pages/AllManagers';
 import MakeManager from './Pages/MakeOrRemoveManager';
+import MakeReseller from './Pages/MakeReseller';
 
 
 import Login from './Pages/Login';
@@ -78,6 +79,8 @@ function App() {
                     <Route path="/manager/create" element={<MakeManager />} />
 
                     <Route path="/manager/all" element={<AllManagers />} />
+
+                    <Route path="/reseller/create" element={<MakeReseller />} />
 
                   </Routes>
 
