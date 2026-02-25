@@ -1,3 +1,3 @@
 export default function MarketCoins() {
-  return <h1>Market Coins Page</h1>;
+  return <h1>Coming soon...</h1>;
 }
