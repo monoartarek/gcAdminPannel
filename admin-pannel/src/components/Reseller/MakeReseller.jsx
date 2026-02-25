@@ -21,7 +21,7 @@ export default function ResellerManagement() {
   const [page, setPage] = useState(0);
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Fetch users from Parse Server
+  // Fetch all users
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -29,7 +29,6 @@ export default function ResellerManagement() {
         `${SERVER_URL}/users?order=-createdAt&limit=1000`,
         { headers }
       );
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Fetch failed");
 
@@ -59,7 +58,7 @@ export default function ResellerManagement() {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Search by UID or username
+  // Search
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearch(value);
@@ -80,7 +79,7 @@ export default function ResellerManagement() {
     setFiltered(result);
   };
 
-  // Increment or Decrement Coins
+  // Update Coins on Parse Server
   const updateCoins = async (user, type) => {
     const input = prompt("Enter amount:");
     if (!input) return;
@@ -92,31 +91,22 @@ export default function ResellerManagement() {
     }
 
     const newCoins =
-      type === "inc"
-        ? user.coins + amount
-        : Math.max(0, user.coins - amount);
+      type === "inc" ? user.coins + amount : Math.max(0, user.coins - amount);
 
     setActionLoading(user.objectId);
 
     try {
-      const res = await fetch(
-        `${SERVER_URL}/users/${user.objectId}`,
-        {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({ coins: newCoins }),
-        }
-      );
-
+      const res = await fetch(`${SERVER_URL}/users/${user.objectId}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ coins: newCoins }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
 
       const updated = users.map((u) =>
-        u.objectId === user.objectId
-          ? { ...u, coins: newCoins }
-          : u
+        u.objectId === user.objectId ? { ...u, coins: newCoins } : u
       );
-
       setUsers(updated);
       setFiltered(updated);
     } catch (err) {
@@ -126,34 +116,29 @@ export default function ResellerManagement() {
     }
   };
 
-  // Make or Remove Reseller
+  // Make / Remove Reseller on Parse Server
   const toggleReseller = async (user) => {
-    const newRole =
-      user.role === "reseller" ? "user" : "reseller";
+    const newRole = user.role === "reseller" ? "user" : "reseller";
 
     setActionLoading(user.objectId);
 
     try {
-      const res = await fetch(
-        `${SERVER_URL}/users/${user.objectId}`,
-        {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({ role: newRole }),
-        }
-      );
+      const res = await fetch(`${SERVER_URL}/users/${user.objectId}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ role: newRole }),
+      });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Role update failed");
 
       const updated = users.map((u) =>
-        u.objectId === user.objectId
-          ? { ...u, role: newRole }
-          : u
+        u.objectId === user.objectId ? { ...u, role: newRole } : u
       );
-
       setUsers(updated);
       setFiltered(updated);
+
+      alert(`✅ Role updated to "${newRole}" successfully!`);
     } catch (err) {
       alert("❌ " + err.message);
     } finally {
@@ -163,10 +148,7 @@ export default function ResellerManagement() {
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginatedUsers = filtered.slice(
-    page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE
-  );
+  const paginatedUsers = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const handlePageChange = (index) => {
     setPage(index);
@@ -203,19 +185,14 @@ export default function ResellerManagement() {
               <th>Action</th>
             </tr>
           </thead>
-
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="11" className="center">
-                  Loading...
-                </td>
+                <td colSpan="11" className="center">Loading...</td>
               </tr>
             ) : paginatedUsers.length === 0 ? (
               <tr>
-                <td colSpan="11" className="center">
-                  No users found.
-                </td>
+                <td colSpan="11" className="center">No users found.</td>
               </tr>
             ) : (
               paginatedUsers.map((user) => (
@@ -274,29 +251,13 @@ export default function ResellerManagement() {
 
       {totalPages > 1 && (
         <div className="pagination">
-          <button
-            disabled={page === 0}
-            onClick={() => handlePageChange(page - 1)}
-          >
-            Prev
-          </button>
-
+          <button disabled={page === 0} onClick={() => handlePageChange(page - 1)}>Prev</button>
           {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              className={page === i ? "active" : ""}
-              onClick={() => handlePageChange(i)}
-            >
+            <button key={i} className={page === i ? "active" : ""} onClick={() => handlePageChange(i)}>
               {i + 1}
             </button>
           ))}
-
-          <button
-            disabled={page === totalPages - 1}
-            onClick={() => handlePageChange(page + 1)}
-          >
-            Next
-          </button>
+          <button disabled={page === totalPages - 1} onClick={() => handlePageChange(page + 1)}>Next</button>
         </div>
       )}
     </div>
