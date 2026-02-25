@@ -11,14 +11,16 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+const PAGE_SIZE = 10;
+
 export default function ManagerManagement() {
   const [managers, setManagers] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  const [page, setPage] = useState(0);
 
-  // Only fetch managers
   const fetchManagers = useCallback(async () => {
     setLoading(true);
     try {
@@ -42,8 +44,9 @@ export default function ManagerManagement() {
 
       setManagers(managerData);
       setFiltered(managerData);
+      setPage(0);
     } catch (error) {
-      alert("❌ Failed to fetch managers: " + error.message);
+      alert("❌ " + error.message);
     } finally {
       setLoading(false);
     }
@@ -53,10 +56,11 @@ export default function ManagerManagement() {
     fetchManagers();
   }, [fetchManagers]);
 
-  // Search by UID only
+  // 🔍 Search by UID
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearch(value);
+    setPage(0);
 
     if (!value.trim()) {
       setFiltered(managers);
@@ -64,7 +68,6 @@ export default function ManagerManagement() {
     }
 
     const lower = value.toLowerCase();
-
     const results = managers.filter((m) =>
       m.uid.toLowerCase().includes(lower)
     );
@@ -72,7 +75,7 @@ export default function ManagerManagement() {
     setFiltered(results);
   };
 
-  // Remove manager
+  // ❌ Remove Manager
   const handleRemove = async (manager) => {
     const confirm = window.confirm(
       `Remove manager role from "${manager.username}"?`
@@ -92,9 +95,8 @@ export default function ManagerManagement() {
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Update failed");
+      if (!res.ok) throw new Error(data.error || "Failed");
 
-      // Remove from list instantly
       const updated = managers.filter(
         (m) => m.objectId !== manager.objectId
       );
@@ -102,12 +104,29 @@ export default function ManagerManagement() {
       setManagers(updated);
       setFiltered(updated);
 
-      alert("✅ Manager removed successfully!");
+      // If last item removed from page → go back one page
+      if ((page + 1) * PAGE_SIZE > updated.length && page > 0) {
+        setPage(page - 1);
+      }
+
+      alert("✅ Manager removed");
     } catch (error) {
-      alert("❌ Failed: " + error.message);
+      alert("❌ " + error.message);
     } finally {
       setActionLoading(null);
     }
+  };
+
+  // 📄 Pagination
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginatedManagers = filtered.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE
+  );
+
+  const handlePageChange = (pageIndex) => {
+    setPage(pageIndex);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -139,18 +158,16 @@ export default function ManagerManagement() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="6" className="center">
-                  Loading...
-                </td>
+                <td colSpan="6" className="center">Loading...</td>
               </tr>
-            ) : filtered.length === 0 ? (
+            ) : paginatedManagers.length === 0 ? (
               <tr>
                 <td colSpan="6" className="center">
                   No managers found.
                 </td>
               </tr>
             ) : (
-              filtered.map((manager) => (
+              paginatedManagers.map((manager) => (
                 <tr key={manager.objectId}>
                   <td>{manager.objectId}</td>
                   <td>{manager.uid}</td>
@@ -178,6 +195,37 @@ export default function ManagerManagement() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination UI */}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button
+            className="page-btn"
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page === 0}
+          >
+            Prev
+          </button>
+
+          {Array.from({ length: totalPages }).map((_, index) => (
+            <button
+              key={index}
+              className={`page-num ${page === index ? "active" : ""}`}
+              onClick={() => handlePageChange(index)}
+            >
+              {index + 1}
+            </button>
+          ))}
+
+          <button
+            className="page-btn"
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page === totalPages - 1}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
-}
+}   
