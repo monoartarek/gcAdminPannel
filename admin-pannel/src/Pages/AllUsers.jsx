@@ -1,3 +1,11 @@
-export default function AllUsers() {
-  return <h1>All Users Page</h1>;
+
+import React from "react";
+import AllUsers from "../components/Users/AllUsers"; // adjust the path
+
+export default function AllUsersPage() {
+  return (
+    <div className="ap-page">
+      <AllUsers />
+    </div>
+  );
 }
