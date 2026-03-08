@@ -196,14 +196,14 @@
     height: 32px;
   }
   /* Vertical pagination */
-  .pagination.vertical {
+  .pagination.horizontal {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
     overflow-y: auto;
   }
-  .pagination.vertical .page-btn,
-  .pagination.vertical .page-num {
+  .pagination.horizontal .page-btn,
+  .pagination.horizontal .page-num {
     min-width: 38px;
     text-align: center;
     padding: 5px 8px;

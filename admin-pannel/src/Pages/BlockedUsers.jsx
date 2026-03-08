@@ -1,3 +1,11 @@
-export default function BlockedUsers() {
-  return <h1>Blocked Users Page</h1>;
+
+import React from "react";
+import BlockedUsers from "../components/Users/BlockedUsers"; // adjust the path
+
+export default function DashboardPage() {
+  return (
+    <div >
+      <BlockedUsers />
+    </div>
+  );
 }
