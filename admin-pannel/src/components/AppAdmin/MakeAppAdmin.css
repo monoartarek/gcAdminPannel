@@ -1,0 +1,78 @@
+.adminPage{
+padding:20px;
+font-family:sans-serif;
+}
+
+.searchArea{
+margin-bottom:20px;
+}
+
+.searchArea input{
+padding:8px;
+margin-right:10px;
+}
+
+.adminTable{
+width:100%;
+border-collapse:collapse;
+}
+
+.adminTable th,
+.adminTable td{
+border:1px solid #ddd;
+padding:10px;
+}
+
+.avatar{
+width:40px;
+height:40px;
+border-radius:50%;
+}
+
+.makeBtn{
+background:green;
+color:white;
+border:none;
+padding:6px 10px;
+cursor:pointer;
+}
+
+.removeBtn{
+background:red;
+color:white;
+border:none;
+padding:6px 10px;
+cursor:pointer;
+}
+
+.pagination{
+margin-top:20px;
+}
+
+.mobileCards{
+display:none;
+}
+
+.card{
+border:1px solid #ddd;
+padding:15px;
+margin-bottom:10px;
+}
+
+.avatarBig{
+width:60px;
+height:60px;
+border-radius:50%;
+}
+
+@media(max-width:768px){
+
+.adminTable{
+display:none;
+}
+
+.mobileCards{
+display:block;
+}
+
+}

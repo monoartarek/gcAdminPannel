@@ -41,7 +41,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       title: 'HOST/Agency',
       icon: 'fas fa-building',
       sub: [
-        { label: 'All Earning', path: '/host/earning' },
+        { label: 'All Earning', path: '/host/earnings' },
         { label: 'All Agency', path: '/host/agency' },
         { label: 'All Agency History', path: '/host/history' }
       ]

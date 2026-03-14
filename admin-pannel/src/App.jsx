@@ -14,6 +14,8 @@ import AllManagers from './Pages/AllManagers';
 import MakeManager from './Pages/MakeOrRemoveManager';
 import MakeReseller from './Pages/MakeReseller';
 import AllResellers from './Pages/AllResellers';
+import AppadminPage from './Pages/MakeAppAdmin';  
+import AllEarnings from './Pages/AllEarnings';
  
 
 
@@ -85,6 +87,10 @@ function App() {
                     <Route path="/reseller/create" element={<MakeReseller />} />
 
                     <Route path="/reseller/all" element={<AllResellers />} />
+
+                    <Route path="/app-admin/create" element={<AppadminPage />} />
+
+                    <Route path="/host/earnings" element={<AllEarnings />} />
 
                   </Routes>
 
