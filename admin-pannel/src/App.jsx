@@ -16,7 +16,7 @@ import MakeReseller from './Pages/MakeReseller';
 import AllResellers from './Pages/AllResellers';
 import AppadminPage from './Pages/MakeAppAdmin';  
 import AllEarnings from './Pages/AllEarnings';
- 
+import AllAgencyHistory from './Pages/AllAgencyHistory';
 
 
 import Login from './Pages/Login';
@@ -91,6 +91,8 @@ function App() {
                     <Route path="/app-admin/create" element={<AppadminPage />} />
 
                     <Route path="/host/earnings" element={<AllEarnings />} />
+
+                    <Route path="/host/history" element={<AllAgencyHistory />} /> 
 
                   </Routes>
 

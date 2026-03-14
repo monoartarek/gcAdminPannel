@@ -1,259 +1,282 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "./MakeAppAdmin.css";
 
-const APP_ID = "YOUR_APP_ID";
-const REST_KEY = "YOUR_REST_API_KEY";
-const SERVER_URL = "https://YOUR_PARSE_SERVER_URL/parse";
+const SERVER_URL = "https://parse.musicliveapp.xyz/parse";
+const APP_ID = "myAppId1";
+const MASTER_KEY = "myMasterKey";
 
-const MakeAppAdmin = () => {
+const headers = {
+  "X-Parse-Application-Id": APP_ID,
+  "X-Parse-Master-Key": MASTER_KEY,
+  "Content-Type": "application/json",
+};
 
-  const [users, setUsers] = useState([]);
-  const [searchUID, setSearchUID] = useState("");
-  const [page, setPage] = useState(1);
+const PAGE_SIZE = 10;
 
-  const limit = 20;
+export default function AdminUsers() {
 
-  // FETCH USERS
-  const fetchUsers = async (pageNumber = page) => {
+  const [users,setUsers] = useState([]);
+  const [filtered,setFiltered] = useState([]);
+  const [search,setSearch] = useState("");
+  const [page,setPage] = useState(0);
+  const [loading,setLoading] = useState(true);
 
-    try {
+  useEffect(()=>{
+    fetchUsers();
+  },[]);
 
-      let url = `${SERVER_URL}/classes/_User?limit=${limit}&skip=${(pageNumber - 1) * limit}`;
+  const fetchUsers = async ()=>{
 
-      if (searchUID) {
-        url = `${SERVER_URL}/classes/_User?where={"UID":"${searchUID}"}`;
-      }
+    try{
 
-      const res = await fetch(url, {
-        headers: {
-          "X-Parse-Application-Id": APP_ID,
-          "X-Parse-REST-API-Key": REST_KEY
-        }
-      });
+      const res = await fetch(
+        `${SERVER_URL}/users?limit=1000`,
+        {headers}
+      );
 
       const data = await res.json();
 
-      setUsers(data.results || []);
+      const results = data.results || [];
 
-    } catch (err) {
-      console.error(err);
+      setUsers(results);
+      setFiltered(results);
+
+    }catch(err){
+
+      alert(err.message);
+
+    }finally{
+
+      setLoading(false);
+
     }
 
   };
 
-  // PAGE CHANGE LOAD
-  useEffect(() => {
+  /* SEARCH */
 
-    const load = async () => {
+  const handleSearch = (e)=>{
 
-      try {
+    const value = e.target.value.toLowerCase();
 
-        let url = `${SERVER_URL}/classes/_User?limit=${limit}&skip=${(page - 1) * limit}`;
+    setSearch(value);
+    setPage(0);
 
-        const res = await fetch(url, {
-          headers: {
-            "X-Parse-Application-Id": APP_ID,
-            "X-Parse-REST-API-Key": REST_KEY
-          }
-        });
+    if(!value.trim()){
+      setFiltered(users);
+      return;
+    }
 
-        const data = await res.json();
+    const results = users.filter(
+      (u)=>
+        String(u.uid || "")
+        .toLowerCase()
+        .includes(value)
+        ||
+        String(u.name || "")
+        .toLowerCase()
+        .includes(value)
+    );
 
-        setUsers(data.results || []);
+    setFiltered(results);
 
-      } catch (err) {
-        console.error(err);
-      }
+  };
 
-    };
+  /* PAGINATION */
 
-    load();
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
-  }, [page]);
+  const paginatedUsers = filtered.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE
+  );
 
+  const changePage = (p)=>{
+    setPage(p);
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
 
-  // TOGGLE ADMIN
-  const toggleAdmin = async (user) => {
+  /* ADMIN ACTION */
 
-    try {
+  const toggleAdmin = async(user)=>{
 
-      const newStatus = !user.isAdmin;
+    const newStatus = user.isAdmin ? false : true;
 
-      const res = await fetch(`${SERVER_URL}/classes/_User/${user.objectId}`, {
-
-        method: "PUT",
-
-        headers: {
-          "X-Parse-Application-Id": APP_ID,
-          "X-Parse-REST-API-Key": REST_KEY,
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          isAdmin: newStatus
+    await fetch(
+      `${SERVER_URL}/users/${user.objectId}`,
+      {
+        method:"PUT",
+        headers,
+        body:JSON.stringify({
+          isAdmin:newStatus
         })
-
-      });
-
-      if (res.ok) {
-        fetchUsers();
-      } else {
-        alert("Failed to update admin");
       }
+    );
 
-    } catch (err) {
-
-      console.error(err);
-      alert("Failed to update admin");
-
-    }
+    fetchUsers();
 
   };
 
+  return(
 
-  return (
+    <div className="adminusers-page">
 
-    <div className="adminPage">
+      <h2 className="page-title">
+        Admin Users
+      </h2>
 
-      <h2>Make App Admin</h2>
+      {/* SEARCH */}
 
-      <div className="searchArea">
+      <div className="search-box">
 
         <input
-          type="text"
-          placeholder="Search UID"
-          value={searchUID}
-          onChange={(e) => setSearchUID(e.target.value)}
+        type="text"
+        placeholder="Search by UID or Name..."
+        value={search}
+        onChange={handleSearch}
         />
 
-        <button onClick={() => fetchUsers(1)}>
-          Search
-        </button>
-
       </div>
 
+      {/* TABLE */}
 
-      {/* DESKTOP TABLE */}
+      <div className="table-wrapper">
 
-      <table className="adminTable">
+        <table className="adminusers-table">
 
-        <thead>
+          <thead>
 
-          <tr>
-            <th>ObjectId</th>
-            <th>UID</th>
-            <th>Name</th>
-            <th>Username</th>
-            <th>Avatar</th>
-            <th>Action</th>
-          </tr>
-
-        </thead>
-
-        <tbody>
-
-          {users.map((user) => (
-
-            <tr key={user.objectId}>
-
-              <td>{user.objectId}</td>
-              <td>{user.UID}</td>
-              <td>{user.name}</td>
-              <td>{user.username}</td>
-
-              <td>
-
-                {user.avatar && (
-                  <img
-                    src={user.avatar.url}
-                    alt=""
-                    className="avatar"
-                  />
-                )}
-
-              </td>
-
-              <td>
-
-                <button
-                  className={user.isAdmin ? "removeBtn" : "makeBtn"}
-                  onClick={() => toggleAdmin(user)}
-                >
-
-                  {user.isAdmin ? "Remove Admin" : "Make Admin"}
-
-                </button>
-
-              </td>
-
+            <tr>
+              <th>ObjectId</th>
+              <th>UID</th>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Avatar</th>
+              <th>Action</th>
             </tr>
 
-          ))}
+          </thead>
 
-        </tbody>
+          <tbody>
 
-      </table>
+            {loading ? (
 
+              <tr>
+                <td colSpan="6" className="center">
+                  Loading...
+                </td>
+              </tr>
 
-      {/* MOBILE CARDS */}
+            ) : paginatedUsers.length === 0 ? (
 
-      <div className="mobileCards">
+              <tr>
+                <td colSpan="6" className="center">
+                  No Users Found
+                </td>
+              </tr>
 
-        {users.map((user) => (
+            ) : (
 
-          <div className="card" key={user.objectId}>
+              paginatedUsers.map((user)=>(
 
-            {user.avatar && (
-              <img
-                src={user.avatar.url}
-                className="avatarBig"
-                alt=""
-              />
+                <tr key={user.objectId}>
+
+                  <td data-label="ObjectId">
+                    {user.objectId}
+                  </td>
+
+                  <td data-label="UID">
+                    {user.uid}
+                  </td>
+
+                  <td data-label="Name">
+                    {user.name}
+                  </td>
+
+                  <td data-label="Username">
+                    {user.username}
+                  </td>
+
+                  <td data-label="Avatar">
+
+                    <img
+                    src={
+                      user.avatar?.url ||
+                      "https://via.placeholder.com/40"
+                    }
+                    alt=""
+                    className="avatar"
+                    />
+
+                  </td>
+
+                  <td data-label="Action">
+
+                    <button
+                    className={
+                      user.isAdmin
+                      ? "remove-admin-btn"
+                      : "make-admin-btn"
+                    }
+                    onClick={()=>toggleAdmin(user)}
+                    >
+                      {user.isAdmin
+                        ? "Remove Admin"
+                        : "Make Admin"}
+                    </button>
+
+                  </td>
+
+                </tr>
+
+              ))
+
             )}
 
-            <p><b>UID:</b> {user.UID}</p>
-            <p><b>Name:</b> {user.name}</p>
-            <p><b>Username:</b> {user.username}</p>
+          </tbody>
 
-            <button
-              className={user.isAdmin ? "removeBtn" : "makeBtn"}
-              onClick={() => toggleAdmin(user)}
-            >
-              {user.isAdmin ? "Remove Admin" : "Make Admin"}
-            </button>
-
-          </div>
-
-        ))}
+        </table>
 
       </div>
-
 
       {/* PAGINATION */}
 
-      <div className="pagination">
+      {totalPages > 1 && (
 
-        <button
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
+        <div className="pagination">
+
+          <button
+          disabled={page===0}
+          onClick={()=>changePage(page-1)}
+          >
           Prev
-        </button>
+          </button>
 
-        <span>Page {page}</span>
+          {Array.from({length:totalPages},(_,i)=>(
 
-        <button
-          onClick={() => setPage(page + 1)}
-        >
+            <button
+            key={i}
+            className={page===i ? "active" : ""}
+            onClick={()=>changePage(i)}
+            >
+            {i+1}
+            </button>
+
+          ))}
+
+          <button
+          disabled={page===totalPages-1}
+          onClick={()=>changePage(page+1)}
+          >
           Next
-        </button>
+          </button>
 
-      </div>
+        </div>
+
+      )}
 
     </div>
 
   );
 
-};
-
-export default MakeAppAdmin;
+}
