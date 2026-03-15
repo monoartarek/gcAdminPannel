@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import "./Dashboard.css";
 import Parse from "../../parseConfig";
+import PieChart from "./PieChartMF";
 
 export default function Dashboard() {
   const [users, setUsers] = useState([]);
@@ -78,8 +79,10 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <h2 className="table-title">Latest Users</h2>
 
+      <h2 className="table-title">Latest Users</h2>
+      {/* GenderPieChart */}
+      <PieChart />  
       <div className="search-wrapper">
         <input
           type="text"

@@ -1,0 +1,116 @@
+.admins-page{
+padding:20px;
+background:#f4f6f9;
+min-height:100vh;
+font-family:Arial,sans-serif;
+}
+
+.page-title{
+text-align:center;
+margin-bottom:20px;
+}
+
+.search-box{
+text-align:center;
+margin-bottom:15px;
+}
+
+.search-box input{
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+width:250px;
+}
+
+.table-wrapper{
+overflow-x:auto;
+background:white;
+border-radius:8px;
+box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+.admins-table{
+width:100%;
+border-collapse:collapse;
+}
+
+.admins-table th,
+.admins-table td{
+padding:10px;
+border:1px solid #ddd;
+text-align:center;
+font-size:14px;
+}
+
+.avatar{
+width:40px;
+height:40px;
+border-radius:50%;
+}
+
+.remove-admin-btn{
+background:#e74c3c;
+color:white;
+border:none;
+padding:6px 12px;
+border-radius:4px;
+cursor:pointer;
+}
+
+.remove-admin-btn:hover{
+opacity:0.9;
+}
+
+.center{
+text-align:center;
+}
+
+.pagination{
+margin-top:20px;
+display:flex;
+justify-content:center;
+gap:5px;
+flex-wrap:wrap;
+}
+
+.pagination button{
+padding:6px 10px;
+border:none;
+background:#ddd;
+border-radius:4px;
+cursor:pointer;
+}
+
+.pagination button.active{
+background:#3498db;
+color:white;
+}
+
+/* MOBILE */
+
+@media (max-width:768px){
+
+.admins-table thead{
+display:none;
+}
+
+.admins-table tr{
+display:block;
+margin-bottom:15px;
+border:1px solid #ddd;
+}
+
+.admins-table td{
+display:flex;
+justify-content:space-between;
+padding:10px;
+border:none;
+border-bottom:1px solid #eee;
+}
+
+.admins-table td::before{
+content:attr(data-label);
+font-weight:bold;
+}
+
+}

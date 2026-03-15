@@ -1,0 +1,298 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
+
+/* ══════════════════════════════════════
+   LOADING
+══════════════════════════════════════ */
+.pmc-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 60px 20px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.pmc-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: pmc-spin 0.75s linear infinite;
+}
+
+@keyframes pmc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ══════════════════════════════════════
+   GRID
+══════════════════════════════════════ */
+.pmc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  margin-bottom: 24px;
+}
+
+.pmc-grid.is-animated {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ══════════════════════════════════════
+   CARD
+══════════════════════════════════════ */
+.pmc-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+  padding: 22px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 320px;
+  border: 1px solid #f1f5f9;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── card header ── */
+.pmc-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pmc-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.pmc-card__badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════
+   GENDER PIE
+══════════════════════════════════════ */
+.pmc-pie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+}
+
+.pmc-pie-svg {
+  width: 150px;
+  height: 150px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.pmc-slice {
+  cursor: pointer;
+  transition: d 0.2s ease;
+}
+
+.pmc-slice--m { fill: #3b82f6; }
+.pmc-slice--f { fill: #f472b6; }
+.pmc-hole     { fill: #ffffff; }
+
+.pmc-center-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 500;
+  fill: #0f172a;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.pmc-center-lbl {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 9.5px;
+  fill: #94a3b8;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* legend */
+.pmc-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pmc-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background 0.18s, border-color 0.18s, transform 0.15s;
+}
+
+.pmc-legend-row--male.is-on,
+.pmc-legend-row--male:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  transform: translateX(3px);
+}
+
+.pmc-legend-row--female.is-on,
+.pmc-legend-row--female:hover {
+  background: #fce7f3;
+  border-color: #f472b6;
+  transform: translateX(3px);
+}
+
+.pmc-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pmc-dot--male   { background: #3b82f6; box-shadow: 0 0 0 3px #dbeafe; }
+.pmc-dot--female { background: #f472b6; box-shadow: 0 0 0 3px #fce7f3; }
+
+.pmc-legend-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pmc-legend-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.pmc-legend-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.pmc-legend-pct {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* ══════════════════════════════════════
+   BAR ROWS  (age + country cards)
+══════════════════════════════════════ */
+.pmc-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  flex: 1;
+  justify-content: center;
+}
+
+.pmc-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: default;
+  transition: background 0.18s;
+}
+
+.pmc-bar-row.is-on,
+.pmc-bar-row:hover {
+  background: #f8fafc;
+}
+
+.pmc-bar-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  width: 72px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pmc-bar-track {
+  flex: 1;
+  height: 9px;
+  background: #f1f5f9;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.pmc-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pmc-bar-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: #0f172a;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.pmc-empty {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  margin: auto;
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .pmc-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .pmc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pmc-pie-wrap {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pmc-legend {
+    width: 100%;
+  }
+
+  .pmc-card {
+    min-height: unset;
+  }
+}

@@ -17,6 +17,8 @@ import AllResellers from './Pages/AllResellers';
 import AppadminPage from './Pages/MakeAppAdmin';  
 import AllEarnings from './Pages/AllEarnings';
 import AllAgencyHistory from './Pages/AllAgencyHistory';
+import OnlyAdmins from './Pages/AllAdmins';
+import DailyBonusPage from './Pages/DailyBonus';
 
 
 import Login from './Pages/Login';
@@ -93,6 +95,10 @@ function App() {
                     <Route path="/host/earnings" element={<AllEarnings />} />
 
                     <Route path="/host/history" element={<AllAgencyHistory />} /> 
+
+                    <Route path="/app-admin/list" element={<OnlyAdmins />} />  
+
+                    <Route path="/app-admin/daily-bonus" element={<DailyBonusPage />} />  
 
                   </Routes>
 
