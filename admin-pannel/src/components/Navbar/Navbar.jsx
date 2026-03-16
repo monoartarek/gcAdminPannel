@@ -47,7 +47,7 @@ function Navbar({ onHamburgerClick }) {
         </button>
 
         <div className="brand-logo">
-          LOGO
+          PIKILIVE
         </div>
 
       </div>
@@ -56,7 +56,7 @@ function Navbar({ onHamburgerClick }) {
       <div className="nav-section middle">
 
         <span className="admin-tag">
-          ADMIN PANEL
+          {/* ADMIN PANE */}
         </span>
 
       </div>
