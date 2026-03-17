@@ -57,7 +57,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       ]
     },
 
-    { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket' },
+    { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket-gift' },
     { title: 'Messages', icon: 'fas fa-envelope', path: '/messages' },
     { title: 'Posts', icon: 'fas fa-file-alt', path: '/posts' },
     { title: 'Comments', icon: 'fas fa-comments', path: '/comments' },

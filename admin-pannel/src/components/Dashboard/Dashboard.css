@@ -223,3 +223,38 @@
     font-size: 14px;
   }
 }
+
+.pagination{
+margin-top:20px;
+display:flex;
+justify-content:center;
+gap:6px;
+flex-wrap:wrap;
+}
+
+.pagination button{
+padding:6px 10px;
+border:none;
+background:#444;
+color:white;
+border-radius:4px;
+cursor:pointer;
+}
+
+.pagination button.active{
+background:#6a0dad;
+}
+
+.pagination button:disabled{
+opacity:0.4;
+cursor:not-allowed;
+}
+
+@media (max-width:640px){
+
+.pagination button{
+padding:5px 8px;
+font-size:12px;
+}
+
+}
