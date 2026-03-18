@@ -20,7 +20,8 @@ import AllAgencyHistory from './Pages/AllAgencyHistory';
 import OnlyAdmins from './Pages/AllAdmins';
 import DailyBonusPage from './Pages/DailyBonus';
 import RocketPage from './Pages/Rocket';
-
+import Posts from './Pages/Posts';
+import Comments from './Pages/Comments';
 
 import Login from './Pages/Login';
 
@@ -102,6 +103,10 @@ function App() {
                     <Route path="/app-admin/daily-bonus" element={<DailyBonusPage />} />  
 
                     <Route path="/rocket-gift" element={<RocketPage />} />
+
+                    <Route path="/posts" element={<Posts />} />
+
+                    <Route path="/comments" element={<Comments />} />
 
                   </Routes>
 
