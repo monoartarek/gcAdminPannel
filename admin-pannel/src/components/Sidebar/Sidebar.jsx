@@ -99,8 +99,8 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       title: 'Party Theme',
       icon: 'fas fa-palette',
       sub: [
-        { label: 'All Party Themes', path: '/party/all' },
-        { label: 'Add New Party Theme', path: '/party/add' }
+        { label: 'All Party Themes', path: '/party-themes' },
+        { label: 'Add New Party Theme', path: '/party-themes/add' }
       ]
     },
 

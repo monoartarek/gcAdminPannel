@@ -34,6 +34,8 @@ import AllAssetsPage from './Pages/VIPAllAssets';
 import AddNewAssetsPage from './Pages/AddNewAssets';
 import AvatarFramesPage from './Pages/AvatarFrames';
 import AddNewFramePage from './Pages/AddNewFrame';
+import AllPartyThemes from './Pages/AllPartyThemes';
+import AddPartyThemesPage from './Pages/AddPartyThemes';
 
 
 
@@ -146,6 +148,10 @@ function App() {
                     <Route path ="/avatar-frames" element={<AvatarFramesPage />} />
 
                     <Route path ="/avatar/add" element={<AddNewFramePage />} />
+
+                    <Route path ="/party-themes" element={<AllPartyThemes />} />
+
+                    <Route path ="/party-themes/add" element={<AddPartyThemesPage />} />
                     
                   </Routes>
 
