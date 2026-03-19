@@ -36,6 +36,8 @@ import AvatarFramesPage from './Pages/AvatarFrames';
 import AddNewFramePage from './Pages/AddNewFrame';
 import AllPartyThemes from './Pages/AllPartyThemes';
 import AddPartyThemesPage from './Pages/AddPartyThemes';
+import EntranceEffectPage from './Pages/AllEntranceEffect';
+import AddEntranceEffectPage from './Pages/AddEntranceEffect';
 
 
 
@@ -152,6 +154,10 @@ function App() {
                     <Route path ="/party-themes" element={<AllPartyThemes />} />
 
                     <Route path ="/party-themes/add" element={<AddPartyThemesPage />} />
+
+                    <Route path ="/entrance-effects" element={<EntranceEffectPage />} />
+
+                    <Route path ="/entrance-effects/add" element={<AddEntranceEffectPage />} />
                     
                   </Routes>
 

@@ -108,8 +108,8 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       title: 'Entrance Effect',
       icon: 'fas fa-magic',
       sub: [
-        { label: 'All Entrance Effects', path: '/entrance/all' },
-        { label: 'Add New Entrance Effects', path: '/entrance/add' }
+        { label: 'All Entrance Effects', path: '/entrance-effects' },
+        { label: 'Add New Entrance Effects', path: '/entrance-effects/add' }
       ]
     },
 
