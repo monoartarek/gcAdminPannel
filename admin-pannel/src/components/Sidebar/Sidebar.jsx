@@ -81,7 +81,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       title: 'VIP',
       icon: 'fas fa-gem',
       sub: [
-        { label: 'All Assets', path: '/vip/all' },
+        { label: 'All Assets', path: '/vip-assets' },
         { label: 'Add New Assets', path: '/vip/add' }
       ]
     },
