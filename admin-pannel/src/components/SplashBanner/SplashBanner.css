@@ -1,0 +1,57 @@
+.container {
+  padding: 20px;
+  background: #f9fafb;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.top input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+button {
+  margin: 2px;
+  padding: 6px 10px;
+  border: none;
+  background: #6366f1;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.upload {
+  margin-bottom: 10px;
+}
+
+.preview {
+  width: 120px;
+  display: block;
+  margin: 10px 0;
+}
+
+table {
+  width: 100%;
+  background: white;
+  border-collapse: collapse;
+}
+
+th {
+  background: #6366f1;
+  color: white;
+}
+
+th, td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.img {
+  width: 120px;
+  border-radius: 6px;
+}

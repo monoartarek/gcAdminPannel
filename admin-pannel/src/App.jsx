@@ -22,6 +22,10 @@ import DailyBonusPage from './Pages/DailyBonus';
 import RocketPage from './Pages/Rocket';
 import Posts from './Pages/Posts';
 import Comments from './Pages/Comments';
+import BannerPage from './Pages/Banner';
+import SplashBannerPage from './Pages/SplashBanner';
+import LiveBonusPage from './Pages/LiveBonus';
+import LiveStreaming from './Pages/LiveStreaming';
 
 import Login from './Pages/Login';
 
@@ -107,6 +111,14 @@ function App() {
                     <Route path="/posts" element={<Posts />} />
 
                     <Route path="/comments" element={<Comments />} />
+
+                    <Route path ="/banner-image" element={<BannerPage />} />
+
+                    <Route path ="/splash-banner" element={<SplashBannerPage />} />
+
+                    <Route path ="/live-bonus" element={<LiveBonusPage />} />
+
+                    <Route path ="/live-streaming" element={<LiveStreaming />} />
 
                   </Routes>
 

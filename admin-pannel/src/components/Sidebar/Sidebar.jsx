@@ -64,7 +64,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     { title: 'Banner Image', icon: 'fas fa-image', path: '/banner-image' },
     { title: 'Splash Banner', icon: 'fas fa-bolt', path: '/splash-banner' },
     { title: 'Live Bonus', icon: 'fas fa-gift', path: '/live-bonus' },
-    { title: 'Live Streams', icon: 'fas fa-video', path: '/live-streams' },
+    { title: 'Live Streams', icon: 'fas fa-video', path: '/live-streaming' },
     { title: 'Top Streams', icon: 'fas fa-star', path: '/top-streams' },
     { title: 'Stories', icon: 'fas fa-film', path: '/stories' },
 
