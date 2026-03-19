@@ -117,8 +117,8 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       title: 'Official Announcement',
       icon: 'fas fa-bullhorn',
       sub: [
-        { label: 'All Announcements', path: '/announcement/all' },
-        { label: 'Add New Announcement', path: '/announcement/add' }
+        { label: 'All Announcements', path: '/announcements/all' },
+        { label: 'Add New Announcement', path: '/announcements/add' }
       ]
     },
 

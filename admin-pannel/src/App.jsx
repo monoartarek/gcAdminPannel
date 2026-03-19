@@ -38,7 +38,8 @@ import AllPartyThemes from './Pages/AllPartyThemes';
 import AddPartyThemesPage from './Pages/AddPartyThemes';
 import EntranceEffectPage from './Pages/AllEntranceEffect';
 import AddEntranceEffectPage from './Pages/AddEntranceEffect';
-
+import AllAnnouncementsPage from './Pages/Announcements';
+import AddNewAnnouncementPage from './Pages/AddNewAnnouncement';
 
 
 
@@ -158,6 +159,10 @@ function App() {
                     <Route path ="/entrance-effects" element={<EntranceEffectPage />} />
 
                     <Route path ="/entrance-effects/add" element={<AddEntranceEffectPage />} />
+
+                    <Route path ="/announcements/all" element={<AllAnnouncementsPage />} />
+
+                    <Route path ="/announcements/add" element={<AddNewAnnouncementPage />} />
                     
                   </Routes>
 
