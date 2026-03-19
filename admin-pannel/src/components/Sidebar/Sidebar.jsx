@@ -73,7 +73,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       icon: 'fas fa-gift',
       sub: [
         { label: 'All Gifts', path: '/gifts/all' },
-        { label: 'Add New Gift', path: '/gifts/add' }
+        { label: 'Add New Gift', path: '/gifts/add-new' }
       ]
     },
 

@@ -26,6 +26,12 @@ import BannerPage from './Pages/Banner';
 import SplashBannerPage from './Pages/SplashBanner';
 import LiveBonusPage from './Pages/LiveBonus';
 import LiveStreaming from './Pages/LiveStreaming';
+import TopStreamsPage from './Pages/TopStreams';  
+import StoriesPage from './Pages/Stories';
+import GiftsPage from './Pages/AllGifts';
+import AddNewGiftsPage from './Pages/AddNewGifts';
+
+
 
 import Login from './Pages/Login';
 
@@ -120,6 +126,14 @@ function App() {
 
                     <Route path ="/live-streaming" element={<LiveStreaming />} />
 
+                    <Route path ="/top-streams" element={<TopStreamsPage />} />
+
+                    <Route path ="/stories" element={<StoriesPage />} />  
+
+                    <Route path ="/gifts/all" element={<GiftsPage />} />
+
+                    <Route path ="/gifts/add-new" element={<AddNewGiftsPage />} />
+                    
                   </Routes>
 
                 </div>
