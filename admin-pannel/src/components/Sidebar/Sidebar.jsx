@@ -90,7 +90,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       title: 'Avatar Frame',
       icon: 'fas fa-image',
       sub: [
-        { label: 'All Avatar Frame', path: '/avatar/all' },
+        { label: 'All Avatar Frame', path: '/avatar-frames' },
         { label: 'Add New Avatar Frame', path: '/avatar/add' }
       ]
     },

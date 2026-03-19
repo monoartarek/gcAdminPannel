@@ -32,6 +32,8 @@ import GiftsPage from './Pages/AllGifts';
 import AddNewGiftsPage from './Pages/AddNewGifts';
 import AllAssetsPage from './Pages/VIPAllAssets';
 import AddNewAssetsPage from './Pages/AddNewAssets';
+import AvatarFramesPage from './Pages/AvatarFrames';
+import AddNewFramePage from './Pages/AddNewFrame';
 
 
 
@@ -140,6 +142,10 @@ function App() {
                     <Route path ="/vip-assets" element={<AllAssetsPage />} /> 
 
                     <Route path ="/vip/add" element={<AddNewAssetsPage />} /> 
+
+                    <Route path ="/avatar-frames" element={<AvatarFramesPage />} />
+
+                    <Route path ="/avatar/add" element={<AddNewFramePage />} />
                     
                   </Routes>
 
