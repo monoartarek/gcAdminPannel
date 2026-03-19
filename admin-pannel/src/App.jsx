@@ -40,6 +40,7 @@ import EntranceEffectPage from './Pages/AllEntranceEffect';
 import AddEntranceEffectPage from './Pages/AddEntranceEffect';
 import AllAnnouncementsPage from './Pages/Announcements';
 import AddNewAnnouncementPage from './Pages/AddNewAnnouncement';
+import GamesHistoryPage from './Pages/GamesHistory';
 
 
 
@@ -163,6 +164,10 @@ function App() {
                     <Route path ="/announcements/all" element={<AllAnnouncementsPage />} />
 
                     <Route path ="/announcements/add" element={<AddNewAnnouncementPage />} />
+
+                    <Route path ="/games-history" element={<GamesHistoryPage />} />
+
+
                     
                   </Routes>
 

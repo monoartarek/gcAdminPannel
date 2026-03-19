@@ -122,7 +122,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       ]
     },
 
-    { title: 'Game History', icon: 'fas fa-gamepad', path: '/game-history' },
+    { title: 'Game History', icon: 'fas fa-gamepad', path: '/games-history' },
     { title: 'Agora Settings', icon: 'fas fa-cogs', path: '/agora-settings' },
     { title: 'Payments', icon: 'fas fa-hand-holding-usd', path: '/payments' },
 
