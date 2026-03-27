@@ -41,7 +41,7 @@ import AddEntranceEffectPage from './Pages/AddEntranceEffect';
 import AllAnnouncementsPage from './Pages/Announcements';
 import AddNewAnnouncementPage from './Pages/AddNewAnnouncement';
 import GamesHistoryPage from './Pages/GamesHistory';
-
+import AgoraPage from './Pages/Agora';
 
 
 import Login from './Pages/Login';
@@ -166,6 +166,8 @@ function App() {
                     <Route path ="/announcements/add" element={<AddNewAnnouncementPage />} />
 
                     <Route path ="/games-history" element={<GamesHistoryPage />} />
+
+                    <Route path ="/agora-settings" element={<AgoraPage />} />
 
 
                     
