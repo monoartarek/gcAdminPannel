@@ -43,6 +43,7 @@ import AddNewAnnouncementPage from './Pages/AddNewAnnouncement';
 import GamesHistoryPage from './Pages/GamesHistory';
 import AgoraPage from './Pages/Agora';
 import ReportsPage from './Pages/Reports';
+// import Streamings from './Pages/Streamings';
 
 
 import Login from './Pages/Login';
@@ -171,6 +172,8 @@ function App() {
                     <Route path ="/agora-settings" element={<AgoraPage />} />
 
                     <Route path ="/reports" element={<ReportsPage />} />
+
+                    {/* <Route path ="/live-streaming" element={<Streamings />} /> */}
 
 
                     

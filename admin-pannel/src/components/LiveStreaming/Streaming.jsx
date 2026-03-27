@@ -1,551 +1,624 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Parse from "../../parseConfig";
+import AgoraRTC from "agora-rtc-sdk-ng";
 import "./Streaming.css";
 
-/* ══════════════════════════════════════════
-   SVG ICONS
-══════════════════════════════════════════ */
-const Icons = {
-  stream:  <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A1 1 0 0 0 8 6.82z" fill="currentColor"/></svg>,
-  search:  <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
-  close:   <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
-  copy:    <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.24L16.76 4H10a2 2 0 0 0-2 0zM6 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-  excel:   <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8"/><path d="M9 13l2 3 2-3M11 13v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-  pdf:     <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-  csv:     <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8"/><path d="M8 13c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-  prev:    <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
-  next:    <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
-  male:    "♂",
-  female:  "♀",
-  views:   <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/></svg>,
-};
+const PER_PAGE = 8;
+const APP_ID = "YOUR_AGORA_APP_ID"; // Replace with your Agora App ID
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
-const fmtDate = (d) =>
-  d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+const FILTERS = [
+  { key: "ALL",   label: "All Streams",  icon: "⬡" },
+  { key: "audio", label: "Audio",        icon: "♬" },
+  { key: "video", label: "Video",        icon: "▶" },
+  { key: "multi", label: "Multi",        icon: "⊞" },
+];
 
-const fmtViews = (n) => {
-  if (!n && n !== 0) return "—";
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
-  if (n >= 1000)    return (n / 1000).toFixed(1) + "K";
-  return String(n);
-};
+export default function LivePage() {
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [data,         setData]         = useState([]);
+  const [filter,       setFilter]       = useState("ALL");
+  const [page,         setPage]         = useState(0);
+  const [viewer,       setViewer]       = useState(null);
+  const [remoteUsers,  setRemoteUsers]  = useState([]);
+  const [loadingJoin,  setLoadingJoin]  = useState(false);
+  const [spotlightId,  setSpotlightId]  = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput,    setChatInput]    = useState("");
+  const [isMuted,      setIsMuted]      = useState(false);
+  const [localUid,     setLocalUid]     = useState(null);
+  const [viewerCount,  setViewerCount]  = useState(0);
+  const [toast,        setToast]        = useState(null);
+  const [searchQuery,  setSearchQuery]  = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-const initials = (name) => {
-  if (!name) return "?";
-  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-};
+  const clientRef    = useRef(null);
+  const chatEndRef   = useRef(null);
+  const stageRef     = useRef(null);
+  const uidRef       = useRef(Math.floor(Math.random() * 900000) + 100000);
 
-const avatarColor = (str) => {
-  const colors = [
-    "linear-gradient(135deg,#3b82f6,#6366f1)",
-    "linear-gradient(135deg,#8b5cf6,#ec4899)",
-    "linear-gradient(135deg,#06b6d4,#3b82f6)",
-    "linear-gradient(135deg,#f97316,#ef4444)",
-    "linear-gradient(135deg,#22c55e,#06b6d4)",
-    "linear-gradient(135deg,#f59e0b,#f97316)",
-  ];
-  let hash = 0;
-  for (let i = 0; i < (str || "").length; i++) hash += str.charCodeAt(i);
-  return colors[hash % colors.length];
-};
+  // ── Toast Helper ───────────────────────────────────────────────────────────
+  const showToast = useCallback((msg, type = "info") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
-/* ══════════════════════════════════════════
-   EXPORT UTILITIES
-══════════════════════════════════════════ */
-const rowToExportObj = (item) => ({
-  ObjectId:  item.id,
-  HostUID:   item.get("hostUID") || item.get("userId") || item.get("uid") || "—",
-  Date:      fmtDate(item.get("createdAt")),
-  Streamer:  item.get("streamerName") || item.get("name") || item.get("username") || "—",
-  Gender:    item.get("gender") || "—",
-  Views:     item.get("views") || item.get("viewCount") || 0,
-  Status:    item.get("isLive") ?? item.get("status") ?? false ? "Live" : "Offline",
-});
-
-const exportCSV = (data) => {
-  const cols = ["ObjectId","HostUID","Date","Streamer","Gender","Views","Status"];
-  const rows = data.map((r) => cols.map((c) => `"${r[c]}"`).join(","));
-  const blob = new Blob([cols.join(",") + "\n" + rows.join("\n")], { type: "text/csv" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = "streaming_export.csv"; a.click();
-};
-
-const exportExcel = (data) => {
-  // Simple TSV that Excel can open
-  const cols = ["ObjectId","HostUID","Date","Streamer","Gender","Views","Status"];
-  const rows = data.map((r) => cols.map((c) => r[c]).join("\t"));
-  const blob = new Blob([cols.join("\t") + "\n" + rows.join("\n")], { type: "application/vnd.ms-excel" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = "streaming_export.xls"; a.click();
-};
-
-const exportPDF = (data) => {
-  const cols = ["ObjectId","HostUID","Date","Streamer","Gender","Views","Status"];
-  const rows = data.map((r) => `<tr>${cols.map((c) => `<td>${r[c]}</td>`).join("")}</tr>`).join("");
-  const html = `<html><head><style>
-    body{font-family:sans-serif;font-size:11px}
-    h2{margin-bottom:12px;color:#1e293b}
-    table{width:100%;border-collapse:collapse}
-    th{background:#1e3a5f;color:white;padding:7px 10px;text-align:left;font-size:10px}
-    td{padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#334155}
-    tr:nth-child(even)td{background:#f8fafc}
-  </style></head><body>
-    <h2>Streaming Report — ${new Date().toLocaleDateString()}</h2>
-    <table><thead><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
-    <tbody>${rows}</tbody></table>
-  </body></html>`;
-  const w = window.open("", "_blank");
-  w.document.write(html); w.document.close(); w.print();
-};
-
-const copyToClipboard = (data) => {
-  const cols = ["ObjectId","HostUID","Date","Streamer","Gender","Views","Status"];
-  const rows = data.map((r) => cols.map((c) => r[c]).join("\t"));
-  const text = cols.join("\t") + "\n" + rows.join("\n");
-  navigator.clipboard.writeText(text).catch(() => {
-    const ta = document.createElement("textarea");
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    document.execCommand("copy"); document.body.removeChild(ta);
-  });
-};
-
-/* ══════════════════════════════════════════
-   TOGGLE COMPONENT
-══════════════════════════════════════════ */
-const LiveToggle = ({ checked, onChange, disabled }) => (
-  <div className="st-toggle-wrap">
-    <label className="st-toggle">
-      <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} />
-      <div className="st-toggle-track">
-        <div className="st-toggle-thumb" />
-      </div>
-    </label>
-    <span className={`st-toggle-label ${checked ? "on" : "off"}`}>
-      {checked ? "Live" : "Off"}
-    </span>
-  </div>
-);
-
-/* ══════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════ */
-export default function StreamingTable() {
-  const [rows, setRows]           = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [toggling, setToggling]   = useState({}); // id → bool
-  const [search, setSearch]       = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage]     = useState(10);
-  const [toast, setToast]         = useState("");
-  const searchRef = useRef(null);
-
-  /* ── Fetch ── */
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  // ── Data Fetching ──────────────────────────────────────────────────────────
+  const fetchLive = useCallback(async () => {
     try {
-      const query = new Parse.Query(Parse.Object.extend("Streaming"));
-      query.descending("createdAt");
-      query.limit(1000);
-      const results = await query.find();
-      setRows(results);
+      const q = new Parse.Query("Streaming");
+      q.equalTo("streaming", true);
+      q.descending("createdAt");
+      q.include(["user"]);
+      const res = await q.find();
+      setData(res);
     } catch (err) {
       console.error("Fetch error:", err);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchLive();
+    const interval = setInterval(fetchLive, 5000);
+    return () => clearInterval(interval);
+  }, [fetchLive]);
 
-  /* ── Toggle live status ── */
-  const handleToggle = useCallback(async (item) => {
-    const id      = item.id;
-    const current = item.get("isLive") ?? false;
-    setToggling((prev) => ({ ...prev, [id]: true }));
+  // ── Auto-scroll chat ───────────────────────────────────────────────────────
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // ── Agora: Leave ──────────────────────────────────────────────────────────
+  const leave = useCallback(async () => {
     try {
-      item.set("isLive", !current);
-      await item.save();
-      setRows((prev) =>
-        prev.map((r) => (r.id === id ? item : r))
-      );
-    } catch (err) {
-      console.error("Toggle error:", err);
-      item.set("isLive", current); // rollback
-    } finally {
-      setToggling((prev) => ({ ...prev, [id]: false }));
-    }
-  }, []);
+      if (clientRef.current) {
+        remoteUsers.forEach(u => {
+          u.videoTrack?.stop();
+          u.audioTrack?.stop();
+        });
+        await clientRef.current.leave();
+      }
+    } catch (e) { console.error(e); }
+    clientRef.current = null;
+    setRemoteUsers([]);
+    setViewer(null);
+    setSpotlightId(null);
+    setLoadingJoin(false);
+    setLocalUid(null);
+    setViewerCount(0);
+    setChatMessages([]);
+    setIsFullscreen(false);
+    showToast("Left the stream", "info");
+  }, [remoteUsers, showToast]);
 
-  /* ── Search filter ── */
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const uid = (r.get("hostUID") || r.get("userId") || r.get("uid") || "").toLowerCase();
-      const oid = r.id.toLowerCase();
-      return uid.includes(q) || oid.includes(q);
+  // ── Agora: Join ───────────────────────────────────────────────────────────
+  const joinAgora = useCallback(async (item, token, uid) => {
+    const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+    clientRef.current = client;
+    await client.setClientRole("audience");
+
+    client.on("user-published", async (user, mediaType) => {
+      await client.subscribe(user, mediaType);
+      if (mediaType === "audio") user.audioTrack?.play();
+      setRemoteUsers(prev => {
+        const exists = prev.find(u => u.uid === user.uid);
+        return exists
+          ? prev.map(u => (u.uid === user.uid ? { ...u, ...user } : u))
+          : [...prev, user];
+      });
+      setChatMessages(prev => [
+        ...prev,
+        { id: Date.now(), system: true, text: `User ${user.uid} joined the stream` },
+      ]);
     });
-  }, [rows, search]);
 
-  /* Reset page on search/perPage change */
-  useEffect(() => { setCurrentPage(1); }, [search, perPage]);
+    client.on("user-unpublished", (user, mediaType) => {
+      setRemoteUsers(prev =>
+        prev.map(u => (u.uid === user.uid ? { ...u, videoTrack: mediaType === "video" ? null : u.videoTrack, audioTrack: mediaType === "audio" ? null : u.audioTrack } : u))
+      );
+    });
 
-  /* ── Pagination ── */
-  const totalPages   = Math.max(1, Math.ceil(filtered.length / perPage));
-  const safePage     = Math.min(currentPage, totalPages);
-  const indexFirst   = (safePage - 1) * perPage;
-  const pageItems    = filtered.slice(indexFirst, indexFirst + perPage);
-  const startIdx     = filtered.length === 0 ? 0 : indexFirst + 1;
-  const endIdx       = Math.min(indexFirst + perPage, filtered.length);
+    client.on("user-left", user => {
+      setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid));
+      setSpotlightId(prev => (prev === user.uid ? null : prev));
+      setChatMessages(prev => [
+        ...prev,
+        { id: Date.now(), system: true, text: `User ${user.uid} left the stream` },
+      ]);
+    });
 
-  /* ── Export (uses ALL filtered rows, not just current page) ── */
-  const exportData   = useMemo(() => filtered.map(rowToExportObj), [filtered]);
+    client.on("user-joined", user => {
+      setViewerCount(c => c + 1);
+    });
 
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2200);
-  }, []);
+    await client.join(APP_ID, item.get("streaming_channel"), token, uid);
+    setLocalUid(uid);
+    setLoadingJoin(false);
+    showToast("Joined stream successfully!", "success");
+  }, [showToast]);
 
-  const handleCopy = useCallback(() => {
-    copyToClipboard(exportData);
-    showToast("✓ Copied to clipboard!");
-  }, [exportData, showToast]);
-
-  /* ── Page number buttons (max 7 visible) ── */
-  const pageNumbers = useMemo(() => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    const pages = [];
-    pages.push(1);
-    if (safePage > 3) pages.push("…");
-    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) {
-      pages.push(i);
+  // ── Handle Watch ──────────────────────────────────────────────────────────
+  const handleWatch = async item => {
+    if (loadingJoin) return;
+    setLoadingJoin(true);
+    try {
+      const res = await Parse.Cloud.run("generateAgoraToken", {
+        channelName: item.get("streaming_channel"),
+        uid: uidRef.current,
+      });
+      setViewer(item);
+      setChatMessages([{ id: Date.now(), system: true, text: `Welcome to ${item.get("username") || "this"}'s stream!` }]);
+      await joinAgora(item, res.token || res, uidRef.current);
+    } catch (err) {
+      showToast("Error joining: " + err.message, "error");
+      setLoadingJoin(false);
     }
-    if (safePage < totalPages - 2) pages.push("…");
-    pages.push(totalPages);
-    return pages;
-  }, [totalPages, safePage]);
-
-  /* ── Render helpers ── */
-  const renderGender = (g) => {
-    if (!g) return "—";
-    const lower = g.toLowerCase();
-    const cls   = lower === "male" ? "male" : lower === "female" ? "female" : "other";
-    const icon  = lower === "male" ? Icons.male : lower === "female" ? Icons.female : "⚧";
-    return <span className={`st-gender ${cls}`}>{icon} {g}</span>;
   };
 
-  const getUID = (item) =>
-    item.get("hostUID") || item.get("userId") || item.get("uid") || "—";
+  // ── Video Rendering ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!viewer) return;
+    const activeUid = spotlightId ?? remoteUsers.find(u => u.videoTrack)?.uid;
+    if (!activeUid) return;
+    const user = remoteUsers.find(u => u.uid === activeUid);
+    const el = document.getElementById("lv-spotlight-player");
+    if (user?.videoTrack && el) {
+      user.videoTrack.play(el);
+    }
+  }, [remoteUsers, spotlightId, viewer]);
 
-  const getStreamer = (item) =>
-    item.get("streamerName") || item.get("name") || item.get("username") || "Unknown";
+  // ── Chat Send ─────────────────────────────────────────────────────────────
+  const sendChat = () => {
+    if (!chatInput.trim()) return;
+    setChatMessages(prev => [
+      ...prev,
+      { id: Date.now(), system: false, uid: localUid || "You", text: chatInput.trim() },
+    ]);
+    setChatInput("");
+  };
 
-  const getViews = (item) =>
-    item.get("views") ?? item.get("viewCount") ?? null;
+  // ── Mute Toggle ───────────────────────────────────────────────────────────
+  const toggleMute = () => {
+    remoteUsers.forEach(u => {
+      if (isMuted) u.audioTrack?.play();
+      else u.audioTrack?.stop();
+    });
+    setIsMuted(v => !v);
+    showToast(isMuted ? "Audio unmuted" : "Audio muted", "info");
+  };
 
-  const getIsLive = (item) =>
-    item.get("isLive") ?? item.get("status") ?? false;
+  // ── Fullscreen ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
+  }, []);
 
-  /* ══════════════════════════════════════════
-     RENDER
-  ══════════════════════════════════════════ */
+  const toggleFullscreen = () => {
+    const el = stageRef.current;
+    if (!document.fullscreenElement && el) {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      req?.call(el);
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      exit?.call(document);
+    }
+  };
+
+  // ── Filter & Paginate ─────────────────────────────────────────────────────
+  const filtered = data.filter(i => {
+    const matchFilter = filter === "ALL" || i.get("party_type") === filter;
+    const matchSearch = !searchQuery ||
+      (i.get("username") || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (i.get("streaming_channel") || "").toLowerCase().includes(searchQuery.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const pageItems  = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const getTypeIcon = type => {
+    if (type === "video") return "▶";
+    if (type === "audio") return "♬";
+    if (type === "multi") return "⊞";
+    return "⬡";
+  };
+  const getTypeBadge = type => {
+    if (type === "video") return "badge-video";
+    if (type === "audio") return "badge-audio";
+    if (type === "multi") return "badge-multi";
+    return "badge-default";
+  };
+  const getAvatar = name => {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  };
+  const formatTime = date => {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="st-page">
-      <div className="st-inner">
-
-        {/* ── HEADER ── */}
-        <div className="st-header">
-          <div className="st-header-left">
-            <div className="st-logo">{Icons.stream}</div>
-            <div>
-              <div className="st-page-title">Streaming Sessions</div>
-              <div className="st-page-sub">Manage & monitor all active streams</div>
-            </div>
-          </div>
-          <div className="st-live-pill">
-            <span className="st-live-dot" />
-            {rows.filter((r) => getIsLive(r)).length} Live Now
-          </div>
-        </div>
-
-        {/* ── TOOLBAR ── */}
-        <div className="st-toolbar">
-          {/* Search */}
-          <div className="st-search-wrap">
-            <span className="st-search-icon">{Icons.search}</span>
-            <input
-              ref={searchRef}
-              className="st-search"
-              type="text"
-              placeholder="Search by UID or Object ID…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button className="st-search-clear" onClick={() => setSearch("")} type="button">
-                {Icons.close}
-              </button>
-            )}
-          </div>
-
-          {/* Export */}
-          <div className="st-export-group">
-            <button className="st-exp-btn copy" onClick={handleCopy} type="button">
-              {Icons.copy} <span>Copy</span>
-            </button>
-            <button className="st-exp-btn excel" onClick={() => exportExcel(exportData)} type="button">
-              {Icons.excel} <span>Excel</span>
-            </button>
-            <button className="st-exp-btn pdf" onClick={() => exportPDF(exportData)} type="button">
-              {Icons.pdf} <span>PDF</span>
-            </button>
-            <button className="st-exp-btn csv" onClick={() => exportCSV(exportData)} type="button">
-              {Icons.csv} <span>CSV</span>
-            </button>
-          </div>
-
-          {/* Results info */}
-          <div className="st-results-info">
-            <strong>{filtered.length}</strong> of {rows.length} records
-          </div>
-        </div>
-
-        {/* ── MAIN CARD ── */}
-        <div className="st-card">
-
-          {loading ? (
-            <div className="st-loading">
-              <div className="st-spinner" />
-              Loading streaming sessions…
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="st-empty">
-              <div className="st-empty-icon">📡</div>
-              <div className="st-empty-title">
-                {search ? "No results found" : "No sessions yet"}
-              </div>
-              <div className="st-empty-desc">
-                {search
-                  ? `No records match "${search}"`
-                  : "Streaming sessions will appear here once created."}
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* ── DESKTOP TABLE ── */}
-              <div className="st-table-scroll">
-                <table className="st-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Object ID</th>
-                      <th>Host UID</th>
-                      <th>Date</th>
-                      <th>Streamer</th>
-                      <th>Gender</th>
-                      <th>Views</th>
-                      <th>Live Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageItems.map((item, idx) => {
-                      const name    = getStreamer(item);
-                      const uid     = getUID(item);
-                      const isLive  = getIsLive(item);
-                      const views   = getViews(item);
-                      const gender  = item.get("gender");
-                      return (
-                        <tr key={item.id}>
-                          <td style={{ color: "var(--text-3)", fontSize: "0.75rem" }}>
-                            {indexFirst + idx + 1}
-                          </td>
-                          <td>
-                            <span
-                              className="st-oid"
-                              title={item.id}
-                              onClick={() => { navigator.clipboard?.writeText(item.id); showToast("✓ Object ID copied!"); }}
-                            >
-                              {item.id}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="st-uid">{uid}</span>
-                          </td>
-                          <td>
-                            <span className="st-date">{fmtDate(item.get("createdAt"))}</span>
-                          </td>
-                          <td>
-                            <div className="st-streamer">
-                              <div className="st-avatar" style={{ background: avatarColor(name) }}>
-                                {initials(name)}
-                              </div>
-                              <span className="st-streamer-name">{name}</span>
-                            </div>
-                          </td>
-                          <td>{renderGender(gender)}</td>
-                          <td>
-                            <span className="st-views">
-                              {fmtViews(views)}
-                            </span>
-                          </td>
-                          <td>
-                            <LiveToggle
-                              checked={isLive}
-                              onChange={() => handleToggle(item)}
-                              disabled={!!toggling[item.id]}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ── MOBILE CARD LIST ── */}
-              <div className="st-card-list">
-                {pageItems.map((item, idx) => {
-                  const name   = getStreamer(item);
-                  const uid    = getUID(item);
-                  const isLive = getIsLive(item);
-                  const views  = getViews(item);
-                  const gender = item.get("gender");
-                  return (
-                    <div key={item.id} className="st-row-card">
-                      {/* Card top: streamer + status */}
-                      <div className="st-row-card-top">
-                        <div className="st-streamer">
-                          <div className="st-avatar" style={{ background: avatarColor(name) }}>
-                            {initials(name)}
-                          </div>
-                          <div>
-                            <div className="st-streamer-name">{name}</div>
-                            <div style={{ fontSize: "0.68rem", color: "var(--text-3)", marginTop: 2 }}>
-                              #{indexFirst + idx + 1}
-                            </div>
-                          </div>
-                        </div>
-                        <LiveToggle
-                          checked={isLive}
-                          onChange={() => handleToggle(item)}
-                          disabled={!!toggling[item.id]}
-                        />
-                      </div>
-
-                      {/* Card body grid */}
-                      <div className="st-row-card-grid">
-                        <div className="st-row-card-field">
-                          <span className="st-row-card-label">Object ID</span>
-                          <span
-                            className="st-oid"
-                            title={item.id}
-                            onClick={() => { navigator.clipboard?.writeText(item.id); showToast("✓ Copied!"); }}
-                          >
-                            {item.id}
-                          </span>
-                        </div>
-                        <div className="st-row-card-field">
-                          <span className="st-row-card-label">Host UID</span>
-                          <span className="st-uid" style={{ fontSize: "0.78rem" }}>{uid}</span>
-                        </div>
-                        <div className="st-row-card-field">
-                          <span className="st-row-card-label">Date</span>
-                          <span className="st-row-card-value">{fmtDate(item.get("createdAt"))}</span>
-                        </div>
-                        <div className="st-row-card-field">
-                          <span className="st-row-card-label">Gender</span>
-                          <span className="st-row-card-value">{renderGender(gender)}</span>
-                        </div>
-                      </div>
-
-                      {/* Card footer */}
-                      <div className="st-row-card-footer">
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ color: "var(--text-3)", display: "flex" }}>{Icons.views}</span>
-                          <span className="st-views">{fmtViews(views)} views</span>
-                        </div>
-                        <span className={`st-status-badge ${isLive ? "on" : "off"}`}>
-                          <span className="st-status-dot" />
-                          {isLive ? "Live" : "Offline"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {/* ── PAGINATION FOOTER ── */}
-          {!loading && filtered.length > 0 && (
-            <div className="st-footer">
-              {/* Per page selector */}
-              <div className="st-per-page">
-                <span>Show</span>
-                <select
-                  value={perPage}
-                  onChange={(e) => setPerPage(Number(e.target.value))}
-                >
-                  {[5, 10, 20, 50].map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-                <span>per page</span>
-              </div>
-
-              {/* Info */}
-              <div className="st-footer-info">
-                Showing <strong>{startIdx}–{endIdx}</strong> of <strong>{filtered.length}</strong>
-              </div>
-
-              {/* Page buttons */}
-              <div className="st-pages">
-                <button
-                  className="st-page-btn"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
-                  type="button"
-                  aria-label="Previous"
-                >
-                  {Icons.prev}
-                </button>
-
-                {pageNumbers.map((p, i) =>
-                  p === "…" ? (
-                    <button key={`ellipsis-${i}`} className="st-page-btn" disabled type="button">…</button>
-                  ) : (
-                    <button
-                      key={p}
-                      className={`st-page-btn ${safePage === p ? "active" : ""}`}
-                      onClick={() => setCurrentPage(p)}
-                      type="button"
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-
-                <button
-                  className="st-page-btn"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
-                  type="button"
-                  aria-label="Next"
-                >
-                  {Icons.next}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-      </div>
+    <div className="lv-root">
 
       {/* ── TOAST ── */}
-      {toast && <div className="st-toast">{toast}</div>}
+      {toast && (
+        <div className={`lv-toast lv-toast--${toast.type}`}>
+          <span className="lv-toast-icon">
+            {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "i"}
+          </span>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* ── NAVBAR ── */}
+      <header className="lv-nav">
+        <div className="lv-nav-brand">
+          <div className="lv-brand-dot" />
+          <span className="lv-brand-name">Pikilive</span>
+          <span className="lv-brand-badge">LIVE</span>
+        </div>
+
+        <div className="lv-nav-search">
+          <span className="lv-search-icon">⌕</span>
+          <input
+            className="lv-search-input"
+            placeholder="Search streams…"
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
+          />
+        </div>
+
+        <div className="lv-nav-meta">
+          <span className="lv-live-count">{data.length} live</span>
+        </div>
+      </header>
+
+      {/* ── FILTER TABS ── */}
+      <div className="lv-tabs-row">
+        <div className="lv-tabs">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              className={`lv-tab ${filter === f.key ? "lv-tab--active" : ""}`}
+              onClick={() => { setFilter(f.key); setPage(0); }}
+            >
+              <span className="lv-tab-icon">{f.icon}</span>
+              <span>{f.label}</span>
+              <span className="lv-tab-count">
+                {f.key === "ALL"
+                  ? data.length
+                  : data.filter(i => i.get("party_type") === f.key).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="lv-result-label">
+          {filtered.length} stream{filtered.length !== 1 ? "s" : ""}
+        </div>
+      </div>
+
+      {/* ── GRID ── */}
+      <main className="lv-main">
+        {pageItems.length === 0 ? (
+          <div className="lv-empty">
+            <div className="lv-empty-icon">📡</div>
+            <p>No live streams right now</p>
+            <small>Try a different filter or check back soon</small>
+          </div>
+        ) : (
+          <div className="lv-grid">
+            {pageItems.map(item => {
+              const username    = item.get("username")    || "Anonymous";
+              const image       = item.get("image")       || "";
+              const partyType   = item.get("party_type")  || "video";
+              const joinedUsers = item.get("joined_users") || [];
+              const title       = item.get("title")       || `${username}'s Stream`;
+              const description = item.get("description") || "";
+              const createdAt   = item.createdAt;
+
+              return (
+                <div key={item.id} className="lv-card">
+                  <div className="lv-card-thumb">
+                    {image ? (
+                      <img src={image} alt={username} className="lv-card-img" />
+                    ) : (
+                      <div className="lv-card-img-placeholder">
+                        <span>{getTypeIcon(partyType)}</span>
+                      </div>
+                    )}
+                    <span className="lv-live-pill">● LIVE</span>
+                    <span className={`lv-type-pill ${getTypeBadge(partyType)}`}>
+                      {getTypeIcon(partyType)} {partyType}
+                    </span>
+                    <div className="lv-card-viewers">
+                      <span className="lv-eye-icon">👁</span>
+                      {joinedUsers.length}
+                    </div>
+                  </div>
+
+                  <div className="lv-card-body">
+                    <div className="lv-card-header">
+                      <div className="lv-avatar-sm">{getAvatar(username)}</div>
+                      <div className="lv-card-meta">
+                        <span className="lv-card-username">{username}</span>
+                        <span className="lv-card-time">{formatTime(createdAt)}</span>
+                      </div>
+                    </div>
+
+                    {title && <p className="lv-card-title">{title}</p>}
+                    {description && <p className="lv-card-desc">{description}</p>}
+
+                    <div className="lv-card-footer">
+                      <div className="lv-card-tags">
+                        {item.get("tags") && item.get("tags").slice(0, 2).map((tag, i) => (
+                          <span key={i} className="lv-tag-chip">#{tag}</span>
+                        ))}
+                      </div>
+                      <button
+                        className="lv-watch-btn"
+                        onClick={() => handleWatch(item)}
+                        disabled={loadingJoin}
+                      >
+                        {loadingJoin ? (
+                          <span className="lv-spin" />
+                        ) : (
+                          `${partyType === "audio" ? "Listen" : "Watch"} →`
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── PAGINATION ── */}
+        {totalPages > 1 && (
+          <div className="lv-pagination">
+            <button
+              className="lv-page-btn"
+              disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+            >‹ Prev</button>
+
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i}
+                className={`lv-page-btn lv-page-num ${page === i ? "lv-page-btn--active" : ""}`}
+                onClick={() => setPage(i)}
+              >
+                {i + 1}
+              </button>
+            ))}
+
+            <button
+              className="lv-page-btn"
+              disabled={page === totalPages - 1}
+              onClick={() => setPage(p => p + 1)}
+            >Next ›</button>
+          </div>
+        )}
+      </main>
+
+      {/* ── STAGE MODAL ── */}
+      {viewer && (
+        <div className="lv-stage" ref={stageRef}>
+
+          {/* Header */}
+          <div className="lv-stage-nav">
+            <div className="lv-stage-brand">
+              <span className="lv-pulse" />
+              <div className="lv-stage-avatar">{getAvatar(viewer.get("username") || "?")}</div>
+              <div>
+                <p className="lv-stage-name">{viewer.get("username") || "Stream"}</p>
+                <p className="lv-stage-sub">
+                  {viewer.get("party_type")} · {remoteUsers.length} participant{remoteUsers.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="lv-stage-actions">
+              <div className="lv-viewer-badge">
+                <span>👁</span> {viewerCount + remoteUsers.length}
+              </div>
+              <button className="lv-icon-btn" title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"} onClick={toggleFullscreen}>
+                {isFullscreen ? "⊡" : "⛶"}
+              </button>
+              <button className="lv-leave-btn" onClick={leave}>Leave ✕</button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="lv-stage-body">
+
+            {/* Main Video Area */}
+            <div className="lv-main-col">
+
+              {/* Spotlight */}
+              <div className="lv-spotlight">
+                <div id="lv-spotlight-player" className="lv-spotlight-inner">
+                  {!remoteUsers.some(u => u.videoTrack) && (
+                    <div className="lv-no-video">
+                      <div className="lv-no-video-icon">
+                        {viewer.get("party_type") === "audio" ? "♬" : "▶"}
+                      </div>
+                      <p>Waiting for host…</p>
+                      <small>Stream will appear here</small>
+                    </div>
+                  )}
+                </div>
+
+                {/* Overlay info */}
+                {remoteUsers.some(u => u.videoTrack) && (
+                  <div className="lv-spotlight-label">
+                    {getAvatar(viewer.get("username") || "?")} ·{" "}
+                    {viewer.get("username") || "Host"}
+                  </div>
+                )}
+              </div>
+
+              {/* Thumbnail strip for multi-user */}
+              {remoteUsers.length > 1 && (
+                <div className="lv-thumb-strip">
+                  {remoteUsers.map(u => (
+                    <div
+                      key={u.uid}
+                      className={`lv-thumb-item ${spotlightId === u.uid ? "lv-thumb-item--active" : ""}`}
+                      onClick={() => setSpotlightId(u.uid)}
+                    >
+                      <div className="lv-thumb-vid">
+                        {u.videoTrack ? "📷" : "♬"}
+                      </div>
+                      <span className="lv-thumb-label">User {String(u.uid).slice(-4)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Controls */}
+              <div className="lv-controls">
+                <button
+                  className={`lv-ctrl-btn ${isMuted ? "lv-ctrl-btn--active" : ""}`}
+                  onClick={toggleMute}
+                  title={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted ? "🔇" : "🔊"}
+                  <span>{isMuted ? "Unmuted" : "Muted"}</span>
+                </button>
+
+                <button className="lv-ctrl-btn" title="Share" onClick={() => {
+                  navigator.clipboard?.writeText(window.location.href);
+                  showToast("Link copied!", "success");
+                }}>
+                  🔗
+                  <span>Share</span>
+                </button>
+
+                <button
+                  className="lv-ctrl-btn lv-ctrl-btn--danger"
+                  onClick={leave}
+                  title="Leave Stream"
+                >
+                  📞
+                  <span>Leave</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <aside className="lv-sidebar">
+
+              {/* Stream Info */}
+              <div className="lv-sidebar-section">
+                <p className="lv-sidebar-label">Stream Info</p>
+                <div className="lv-info-block">
+                  <div className="lv-info-row">
+                    <span className="lv-info-key">Channel</span>
+                    <span className="lv-info-val">{viewer.get("streaming_channel") || "—"}</span>
+                  </div>
+                  <div className="lv-info-row">
+                    <span className="lv-info-key">Type</span>
+                    <span className={`lv-type-badge ${getTypeBadge(viewer.get("party_type"))}`}>
+                      {viewer.get("party_type") || "—"}
+                    </span>
+                  </div>
+                  {viewer.get("title") && (
+                    <div className="lv-info-row">
+                      <span className="lv-info-key">Title</span>
+                      <span className="lv-info-val">{viewer.get("title")}</span>
+                    </div>
+                  )}
+                  {viewer.get("description") && (
+                    <div className="lv-info-row lv-info-row--col">
+                      <span className="lv-info-key">About</span>
+                      <span className="lv-info-val lv-info-desc">{viewer.get("description")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Participants */}
+              <div className="lv-sidebar-section">
+                <p className="lv-sidebar-label">
+                  Participants <span className="lv-count-badge">{remoteUsers.length}</span>
+                </p>
+                <div className="lv-participant-list">
+                  {remoteUsers.length === 0 ? (
+                    <div className="lv-no-participants">Waiting for others…</div>
+                  ) : (
+                    remoteUsers.map(u => (
+                      <div
+                        key={u.uid}
+                        className={`lv-participant ${spotlightId === u.uid ? "lv-participant--active" : ""}`}
+                        onClick={() => setSpotlightId(prev => prev === u.uid ? null : u.uid)}
+                      >
+                        <div className="lv-p-avatar">{String(u.uid).slice(-2)}</div>
+                        <div className="lv-p-info">
+                          <span className="lv-p-name">User {String(u.uid).slice(-4)}</span>
+                          <span className="lv-p-status">
+                            {u.videoTrack ? "📷 Video" : "♬ Audio only"}
+                          </span>
+                        </div>
+                        <div className="lv-p-indicators">
+                          {u.audioTrack && <span className="lv-ind lv-ind--audio" title="Audio">♬</span>}
+                          {u.videoTrack && <span className="lv-ind lv-ind--video" title="Video">▶</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Live Chat */}
+              <div className="lv-sidebar-section lv-chat-section">
+                <p className="lv-sidebar-label">Live Chat</p>
+                <div className="lv-chat-messages">
+                  {chatMessages.map(m => (
+                    <div key={m.id} className={`lv-chat-msg ${m.system ? "lv-chat-msg--system" : ""}`}>
+                      {!m.system && (
+                        <span className="lv-chat-user">You</span>
+                      )}
+                      <span className="lv-chat-text">{m.text}</span>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className="lv-chat-input-row">
+                  <input
+                    className="lv-chat-input"
+                    placeholder="Say something…"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && sendChat()}
+                  />
+                  <button className="lv-chat-send" onClick={sendChat}>➤</button>
+                </div>
+              </div>
+
+            </aside>
+          </div>
+        </div>
+      )}
+
+      {/* ── LOADING OVERLAY ── */}
+      {loadingJoin && !viewer && (
+        <div className="lv-loading-overlay">
+          <div className="lv-loading-card">
+            <div className="lv-spinner" />
+            <p>Joining stream…</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
