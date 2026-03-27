@@ -42,6 +42,7 @@ import AllAnnouncementsPage from './Pages/Announcements';
 import AddNewAnnouncementPage from './Pages/AddNewAnnouncement';
 import GamesHistoryPage from './Pages/GamesHistory';
 import AgoraPage from './Pages/Agora';
+import ReportsPage from './Pages/Reports';
 
 
 import Login from './Pages/Login';
@@ -168,6 +169,8 @@ function App() {
                     <Route path ="/games-history" element={<GamesHistoryPage />} />
 
                     <Route path ="/agora-settings" element={<AgoraPage />} />
+
+                    <Route path ="/reports" element={<ReportsPage />} />
 
 
                     

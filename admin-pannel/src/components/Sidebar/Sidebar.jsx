@@ -138,15 +138,15 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     { title: 'Reports', icon: 'fas fa-chart-line', path: '/reports' },
 
-    {
-      title: 'Advertising',
-      icon: 'fas fa-tv',
-      sub: [
-        { label: 'My Ads', path: '/ads/my' },
-        { label: 'Create New Ad', path: '/ads/create' },
-        { label: 'Google Admob', path: '/ads/admob' }
-      ]
-    }
+    // {
+    //   title: 'Advertising',
+    //   icon: 'fas fa-tv',
+    //   sub: [
+    //     { label: 'My Ads', path: '/ads/my' },
+    //     { label: 'Create New Ad', path: '/ads/create' },
+    //     { label: 'Google Admob', path: '/ads/admob' }
+    //   ]
+    // }
   ];
 
   const handleToggleSub = (title) => {
