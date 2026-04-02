@@ -13,28 +13,23 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     {
       title: 'Manager',
       icon: 'fas fa-user-shield',
-      sub: [
-        { label: 'Make/Remove Manager', path: '/manager/create' },
-        { label: 'All Managers', path: '/manager/all' }
-      ]
+      label: 'Make/Remove Manager', path: '/manager/create' 
+      
     },
 
     {
       title: 'Reseller',
       icon: 'fas fa-user',
-      sub: [
-        { label: 'Make/Remove Reseller', path: '/reseller/create' },
-        { label: 'All Resellers', path: '/reseller/all' }
-      ]
+      
+       label: 'Make/Remove Reseller', path: '/reseller/create' 
+        
     },
 
     {
       title: 'Users',
       icon: 'fas fa-users',
-      sub: [
-        { label: 'All Users', path: '/users/all' },
-        { label: 'Blocked Users', path: '/users/blocked' }
-      ]
+      label: 'All Users', path: '/users/all'
+        
     },
 
     {
@@ -50,13 +45,11 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     {
       title: 'App Admin',
       icon: 'fas fa-cogs',
-      sub: [
-        { label: 'Make App Admin', path: '/app-admin/create' },
-        { label: 'Just Admins', path: '/app-admin/list' },
-        { label: 'Daily Bonus', path: '/app-admin/daily-bonus' }
-      ]
+      label: 'Make App Admin', path: '/app-admin/create' 
     },
 
+    
+    { title: 'Daily Bonus', icon: 'fas fa-gift', path: '/app-admin/daily-bonus' },
     { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket-gift' },
     { title: 'Messages', icon: 'fas fa-envelope', path: '/messages' },
     { title: 'Posts', icon: 'fas fa-file-alt', path: '/posts' },

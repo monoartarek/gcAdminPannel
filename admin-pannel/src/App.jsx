@@ -9,15 +9,12 @@ import Navbar from './components/Navbar/Navbar';
 import Dashboard from './Pages/Dashboard';
 import MarketCoins from './Pages/MarketCoins';
 import AllUsers from './Pages/AllUsers';
-import BlockedUsers from './Pages/BlockedUsers';
-import AllManagers from './Pages/AllManagers';
 import MakeManager from './Pages/MakeOrRemoveManager';
 import MakeReseller from './Pages/MakeReseller';
-import AllResellers from './Pages/AllResellers';
 import AppadminPage from './Pages/MakeAppAdmin';  
 import AllEarnings from './Pages/AllEarnings';
 import AllAgencyHistory from './Pages/AllAgencyHistory';
-import OnlyAdmins from './Pages/AllAdmins';
+// import OnlyAdmins from './Pages/AllAdmins';
 import DailyBonusPage from './Pages/DailyBonus';
 import RocketPage from './Pages/Rocket';
 import Posts from './Pages/Posts';
@@ -103,17 +100,9 @@ function App() {
 
                     <Route path="/users/all" element={<AllUsers />} />
 
-                    <Route path="/users/blocked" element={<BlockedUsers />} />
-
-                    {/* <Route path="/managers/all" element={<AllManagers />} /> */}
-
                     <Route path="/manager/create" element={<MakeManager />} />
 
-                    <Route path="/manager/all" element={<AllManagers />} />
-
                     <Route path="/reseller/create" element={<MakeReseller />} />
-
-                    <Route path="/reseller/all" element={<AllResellers />} />
 
                     <Route path="/app-admin/create" element={<AppadminPage />} />
 
@@ -121,7 +110,7 @@ function App() {
 
                     <Route path="/host/history" element={<AllAgencyHistory />} /> 
 
-                    <Route path="/app-admin/list" element={<OnlyAdmins />} />  
+                    {/* <Route path="/app-admin/list" element={<OnlyAdmins />} />   */}
 
                     <Route path="/app-admin/daily-bonus" element={<DailyBonusPage />} />  
 
@@ -174,7 +163,6 @@ function App() {
                     <Route path ="/reports" element={<ReportsPage />} />
 
                     {/* <Route path ="/live-streaming" element={<Streamings />} /> */}
-
 
                     
                   </Routes>
