@@ -20,7 +20,7 @@
 import Parse from "parse"; // or "parse" for web
 
 Parse.initialize("myAppId1", "myJavascriptKey"); // App ID, JS Key
-Parse.serverURL = "https://parse.priyulive.com/parse";
+Parse.serverURL = "https://parse.musicliveapp.xyz/parse";
 Parse.masterKey = "myMasterKey"; // only if needed client-side
 
 export default Parse;
