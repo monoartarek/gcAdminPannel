@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Parse from "../../parseConfig";
 import "./MakeOrRemoveManager.css";
 
-const PAGE_SIZE = 100; // server-side: 100 users fetched per page
+const PAGE_SIZE = 25; // server-side: 25 users fetched per page
 
 /* ── helpers ── */
 function getInitial(name) {
@@ -73,7 +73,7 @@ export default function MakeOrRemoveManager() {
   }, []);
 
   /* ──────────────────────────────────────────────────────
-     FETCH: only current page (100 users)
+     FETCH: only current page (25 users)
   ────────────────────────────────────────────────────── */
   const fetchPage = useCallback(async (pageNum, role, srch) => {
     setLoading(true);
@@ -108,38 +108,51 @@ export default function MakeOrRemoveManager() {
       q.skip(pageNum * PAGE_SIZE);
 
       // search filter
-      if (srch.trim()) {
-        const s  = srch.trim();
-        const qN = new Parse.Query(User); qN.startsWith("name",     s);
-        const qU = new Parse.Query(User); qU.startsWith("username", s);
-        const qI = new Parse.Query(User); qI.startsWith("uid",      s);
-        let combined = Parse.Query.or(qN, qU, qI);
+        if (srch.trim()) {
+      const s      = srch.trim();
+      const mk     = { useMasterKey: true };
+      const queries = [];
 
-        if (role === "manager") {
-          combined.equalTo("role", "manager");
-        } else if (role === "user") {
-          // can't chain another OR after or() — fetch combined then filter client-side for user
-          combined.descending("createdAt");
-          combined.limit(PAGE_SIZE);
-          combined.skip(pageNum * PAGE_SIZE);
-          combined.select("uid", "name", "username", "role", "avatar");
-          const results = await combined.find({ useMasterKey: true });
-          const filtered = results.filter(u => {
-            const r = u.get("role");
-            return !r || r === "user";
-          });
-          setUsers(mapUsers(filtered));
-          return;
-        }
+      // name — string, startsWith works
+      const qN = new Parse.Query(User);
+      qN.startsWith("name", s);
+      queries.push(qN);
 
-        combined.descending("createdAt");
-        combined.limit(PAGE_SIZE);
-        combined.skip(pageNum * PAGE_SIZE);
-        combined.select("uid", "name", "username", "role", "avatar");
-        const results = await combined.find({ useMasterKey: true });
-        setUsers(mapUsers(results));
-        return;
+      // username — string, startsWith works
+      const qU = new Parse.Query(User);
+      qU.startsWith("username", s);
+      queries.push(qU);
+
+      // uid — number, only equalTo works
+      const uidNum = parseInt(s);
+      if (!isNaN(uidNum)) {
+        const qI = new Parse.Query(User);
+        qI.equalTo("uid", uidNum);
+        queries.push(qI);
       }
+
+      let combined = Parse.Query.or(...queries);
+
+      // apply role filter on top of search
+      if (role === "manager") {
+        combined.equalTo("role", "manager");
+      }
+
+      combined.descending("createdAt");
+      combined.limit(PAGE_SIZE);
+      combined.skip(pageNum * PAGE_SIZE);
+      combined.select("uid", "name", "username", "role", "avatar");
+
+      const results = await combined.find({ useMasterKey: true });
+
+      // if role==="user", filter client-side (Parse can't chain OR+OR)
+      const filtered = role === "user"
+        ? results.filter(u => { const r = u.get("role"); return !r || r === "user"; })
+        : results;
+
+      setUsers(mapUsers(filtered));
+      return;
+    }
 
       const results = await q.find({ useMasterKey: true });
       setUsers(mapUsers(results));
@@ -154,34 +167,46 @@ export default function MakeOrRemoveManager() {
   /* ──────────────────────────────────────────────────────
      COUNT: lightweight — just the number, no data
   ────────────────────────────────────────────────────── */
-  const fetchCount = useCallback(async (role, srch) => {
+    const fetchCount = useCallback(async (role, srch) => {
     setCountLoading(true);
     try {
       const User = Parse.Object.extend("_User");
+      const mk   = { useMasterKey: true };
 
-      let total;
-      if (role === "manager") {
-        const q = new Parse.Query(User);
-        q.equalTo("role", "manager");
-        total = await q.count({ useMasterKey: true });
-      } else if (role === "user") {
-        // users with role="user" OR role=null OR role doesn't exist
-        const qUser = new Parse.Query(User); qUser.equalTo("role", "user");
-        const qNull = new Parse.Query(User); qNull.equalTo("role", null);
-        const qNone = new Parse.Query(User); qNone.doesNotExist("role");
-        const qAll  = Parse.Query.or(qUser, qNull, qNone);
-        total = await qAll.count({ useMasterKey: true });
+      let countQ;
+
+      if (srch.trim()) {
+        const s       = srch.trim();
+        const queries = [];
+
+        const qN = new Parse.Query(User); qN.startsWith("name", s);     queries.push(qN);
+        const qU = new Parse.Query(User); qU.startsWith("username", s); queries.push(qU);
+        const uidNum = parseInt(s);
+        if (!isNaN(uidNum)) {
+          const qI = new Parse.Query(User); qI.equalTo("uid", uidNum);  queries.push(qI);
+        }
+
+        countQ = Parse.Query.or(...queries);
+        if (role === "manager") countQ.equalTo("role", "manager");
       } else {
-        // "all" — just count everything
-        const q = new Parse.Query(User);
-        total = await q.count({ useMasterKey: true });
+        if (role === "manager") {
+          countQ = new Parse.Query(User); countQ.equalTo("role", "manager");
+        } else if (role === "user") {
+          const qUser = new Parse.Query(User); qUser.equalTo("role", "user");
+          const qNull = new Parse.Query(User); qNull.equalTo("role", null);
+          const qNone = new Parse.Query(User); qNone.doesNotExist("role");
+          countQ = Parse.Query.or(qUser, qNull, qNone);
+        } else {
+          countQ = new Parse.Query(User);
+        }
       }
-      setTotalCount(total);
 
-      // manager count for stat pill (always, ignoring search)
-      const qMgr = new Parse.Query(User);
-      qMgr.equalTo("role", "manager");
-      const mgrCount = await qMgr.count({ useMasterKey: true });
+      const [total, mgrCount] = await Promise.all([
+        countQ.count(mk),
+        (() => { const q = new Parse.Query(User); q.equalTo("role","manager"); return q.count(mk); })(),
+      ]);
+
+      setTotalCount(total);
       setManagerCount(mgrCount);
     } catch (err) {
       console.error("Count error:", err);

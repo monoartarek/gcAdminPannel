@@ -507,7 +507,21 @@
   border-top-color: currentColor; border-radius: 50%;
   animation: rsSpin 0.65s linear infinite;
 }
+/* ── Add this block to your existing MakeReseller.css ──
+   Place it just before the PAGINATION section          */
 
+.rs-page-indicator {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--rs-font-m); font-size: 12px; color: var(--rs-muted);
+  padding: 8px 14px;
+  background: var(--rs-bg2); border: 1px solid var(--rs-border);
+  border-radius: var(--rs-r-xs); width: fit-content;
+}
+.rs-page-indicator strong { color: var(--rs-text); }
+.rs-page-indicator-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--rs-faint); flex-shrink: 0;
+}
 /* ════════════════════════════════════════════════════════════
    PAGINATION
 ════════════════════════════════════════════════════════════ */

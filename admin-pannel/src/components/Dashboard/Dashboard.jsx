@@ -374,19 +374,19 @@ function AnalyticsSection() {
   /* ── Monthly coin growth ──
        Change "CoinTransaction" to your actual class name
        Change "amount" to your actual field name           */
-  async function fetchCoinGrowth() {
-    const months = getLast6Months(), results = [];
-    for (const { label, start, end } of months) {
-      try {
-        const q = new Parse.Query("CoinsTransactions");
-        q.greaterThanOrEqualTo("createdAt", start); q.lessThan("createdAt", end);
-        const batch = await q.find({ useMasterKey: true });
-        const total = batch.reduce((sum, obj) => sum + (obj.get("amount") || 0), 0);
-        results.push({ label, total });
-      } catch { results.push({ label, total: 0 }); }
-    }
-    return results;
-  }
+  // async function fetchCoinGrowth() {
+  //   const months = getLast6Months(), results = [];
+  //   for (const { label, start, end } of months) {
+  //     try {
+  //       const q = new Parse.Query("CoinsTransactions");
+  //       q.greaterThanOrEqualTo("createdAt", start); q.lessThan("createdAt", end);
+  //       const batch = await q.find({ useMasterKey: true });
+  //       const total = batch.reduce((sum, obj) => sum + (obj.get("amount") || 0), 0);
+  //       results.push({ label, total });
+  //     } catch { results.push({ label, total: 0 }); }
+  //   }
+  //   return results;
+  // }
 
   /* ── Donut math ── */
   const total         = male + female;
