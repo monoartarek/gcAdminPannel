@@ -97,7 +97,7 @@ export default function Banners() {
       const results = await q.find({ useMasterKey: true });
       setBanners(results.map(item => ({
         id:        item.id,
-        image:     item.get("image")?.url() || null,
+        image:     item.get("file")?.url() || null,
         createdAt: item.get("createdAt"),
       })));
       setPage(0);
@@ -143,7 +143,7 @@ export default function Banners() {
       await parseFile.save({ useMasterKey: true });
       const Banner = Parse.Object.extend("banners");
       const obj = new Banner();
-      obj.set("image", parseFile);
+      obj.set("file", parseFile);
       await obj.save(null, { useMasterKey: true });
       showToast("Banner uploaded successfully", "success");
       resetForm(); setUploadModal(false); fetchBanners();
@@ -161,7 +161,7 @@ export default function Banners() {
       if (file) {
         const parseFile = new Parse.File(file.name, file);
         await parseFile.save({ useMasterKey: true });
-        obj.set("image", parseFile);
+        obj.set("file", parseFile);
       }
       await obj.save(null, { useMasterKey: true });
       showToast("Banner updated successfully", "success");
