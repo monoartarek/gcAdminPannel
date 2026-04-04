@@ -61,14 +61,14 @@ export default function SplashBanner() {
     setLoading(true);
     setAnimated(false);
     try {
-      const Banner = Parse.Object.extend("SplashBanner");
+      const Banner = Parse.Object.extend("splash");
       const q = new Parse.Query(Banner);
       q.descending("createdAt");
       q.limit(500);
       const results = await q.find({ useMasterKey: true });
       setData(results.map(item => ({
         id:        item.id,
-        image:     item.get("image")?.url() || null,
+        image:     item.get("images")?.url() || null,
         createdAt: item.get("createdAt"),
         updatedAt: item.get("updatedAt"),
       })));
@@ -108,7 +108,7 @@ export default function SplashBanner() {
       await parseFile.save({ useMasterKey: true });
       const Banner = Parse.Object.extend("SplashBanner");
       const obj = new Banner();
-      obj.set("image", parseFile);
+      obj.set("images", parseFile);
       await obj.save(null, { useMasterKey: true });
       showToast("Banner uploaded successfully", "success");
       resetForm();
@@ -131,7 +131,7 @@ export default function SplashBanner() {
       if (file) {
         const parseFile = new Parse.File(file.name, file);
         await parseFile.save({ useMasterKey: true });
-        obj.set("image", parseFile);
+        obj.set("images", parseFile);
       }
       await obj.save(null, { useMasterKey: true });
       showToast("Banner updated successfully", "success");
@@ -379,15 +379,15 @@ export default function SplashBanner() {
       {loading ? (
         <div className="sb-loading">
           <div className="sb-loading-ring" />
-          <p>Fetching banners…</p>
+          <p>Fetching Splash Banners…</p>
         </div>
       ) : displayed.length === 0 ? (
         <div className="sb-empty">
           <span className="sb-empty-icon">◎</span>
-          <p>{search ? "No banners match your search" : "No banners uploaded yet"}</p>
+          <p>{search ? "No Splash Banners match your search" : "No Splash Banners uploaded yet"}</p>
           {!search && (
             <button className="sb-upload-btn" onClick={() => { resetForm(); setUploadModal(true); }}>
-              + Upload First Banner
+              + Upload First Splash Banner
             </button>
           )}
         </div>
