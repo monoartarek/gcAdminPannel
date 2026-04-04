@@ -252,6 +252,152 @@ function StatCard({ icon, label, value, color, loading, sub }) {
     </div>
   );
 }
+/* ════════════════════════════════════════════════════════════
+   TOP 10 AGENCY COMPONENT
+   Paste this function into Dashboard.jsx (before AnalyticsSection)
+   Then add <Top10Agency /> inside the Dashboard return JSX
+   Also add the CSS block below into Dashboard.css
+════════════════════════════════════════════════════════════ */
+
+function Top10Agency() {
+  const [agencies, setAgencies] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [animated, setAnimated] = useState(false);
+
+  /* ── earning fields to sum ── */
+  const EARN_FIELDS = [
+    "audio_earning",
+    "livestreaming_earning",
+    "game_gratuities",
+    "party_earnings",
+    "match_earnings",
+    "live_earnings",
+    "p_coin_earnings",
+    "multiboard_earning",
+    "platform_reward",
+  ];
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const AgencyMember = Parse.Object.extend("AgencyMember");
+        const q = new Parse.Query(AgencyMember);
+        q.select(["agent_id", ...EARN_FIELDS]);
+        q.limit(1000); // fetch all to sum client-side (Parse has no sum aggregation without Live Query)
+
+        const results = await q.find({ useMasterKey: true });
+
+        /* group by agent_id and sum earnings */
+        const map = {};
+        results.forEach(r => {
+          const agentId = r.get("agent_id") || "Unknown";
+          if (!map[agentId]) map[agentId] = { agent_id: agentId, total: 0 };
+          EARN_FIELDS.forEach(f => {
+            map[agentId].total += Number(r.get(f) || 0);
+          });
+        });
+
+        /* sort by total descending, take top 10 */
+        const top10 = Object.values(map)
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 10);
+
+        setAgencies(top10);
+      } catch (err) {
+        console.error("Top10Agency fetch error:", err);
+      } finally {
+        setLoading(false);
+        setTimeout(() => setAnimated(true), 80);
+      }
+    })();
+  }, []);
+
+  function fmtEarn(n) {
+    if (!n && n !== 0) return "0";
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
+    if (n >= 1_000)     return (n / 1_000).toFixed(1) + "K";
+    return n.toLocaleString();
+  }
+
+  const maxTotal = agencies.length > 0 ? agencies[0].total : 1;
+
+  const RANK_COLORS = [
+    "#fbbf24", // 1st — gold
+    "#94a3b8", // 2nd — silver
+    "#c2713a", // 3rd — bronze
+    "#818cf8", // 4th+
+    "#818cf8",
+    "#818cf8",
+    "#818cf8",
+    "#818cf8",
+    "#818cf8",
+    "#818cf8",
+  ];
+
+  return (
+    <div className="t10-card">
+      <div className="t10-header">
+        <div className="t10-title-group">
+          <span className="t10-eyebrow">Agency Leaderboard</span>
+          <h2 className="t10-title">Top 10 Agencies</h2>
+          <span className="t10-sub">Ranked by total combined earnings</span>
+        </div>
+        <div className="t10-badge">Top 10</div>
+      </div>
+
+      {loading ? (
+        <div className="t10-loading">
+          <div className="t10-spinner" /><div className="t10-spinner t10-spinner--2" />
+          <p>Loading leaderboard…</p>
+        </div>
+      ) : agencies.length === 0 ? (
+        <div className="t10-empty">No agency data found</div>
+      ) : (
+        <div className={`t10-list ${animated ? "in" : ""}`}>
+          {agencies.map((ag, i) => {
+            const barPct = maxTotal > 0 ? (ag.total / maxTotal) * 100 : 0;
+            const color  = RANK_COLORS[i] || "#818cf8";
+            const isTop3 = i < 3;
+            return (
+              <div key={ag.agent_id}
+                className={`t10-row ${isTop3 ? "t10-row--top3" : ""}`}
+                style={{ animationDelay: `${i * 55}ms` }}>
+
+                {/* Rank */}
+                <div className="t10-rank" style={{ color }}>
+                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                </div>
+
+                {/* Agent ID + bar */}
+                <div className="t10-info">
+                  <div className="t10-agent-id" title={ag.agent_id}>
+                    {ag.agent_id}
+                  </div>
+                  <div className="t10-bar-track">
+                    <div className="t10-bar-fill"
+                      style={{
+                        width: animated ? `${Math.max(barPct, 2)}%` : "0%",
+                        background: color,
+                        boxShadow: isTop3 ? `0 0 10px ${color}66` : "none",
+                        transitionDelay: `${i * 55}ms`,
+                      }} />
+                  </div>
+                </div>
+
+                {/* Earnings */}
+                <div className="t10-earn" style={{ color }}>
+                  {fmtEarn(ag.total)}
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ════════════════════════════════════════════════════════════
    ANALYTICS SECTION (inlined PieChartMF)
@@ -701,16 +847,25 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ══════════ ANALYTICS CHARTS ══════════ */}
-      <div className="dash-section">
-        <div className="dash-section-header">
-          <p className="dash-eyebrow">Analytics</p>
-          <h2 className="dash-section-title">Charts & Growth</h2>
-        </div>
-        <AnalyticsSection />
-      </div>
+{/* ══════════ ANALYTICS CHARTS ══════════ */}
+<div className="dash-section">
+  <div className="dash-section-header">
+    <p className="dash-eyebrow">Analytics</p>
+    <h2 className="dash-section-title">Charts & Growth</h2>
+  </div>
+  <AnalyticsSection />
+</div>
 
-      {/* ══════════ RECENTLY JOINED ══════════ */}
+{/* ══════════ TOP 10 AGENCY ══════════ */}
+<div className="dash-section">
+  <div className="dash-section-header">
+    <p className="dash-eyebrow">Leaderboard</p>
+    <h2 className="dash-section-title">Top Agencies</h2>
+  </div>
+  <Top10Agency />
+</div>
+
+{/* ══════════ RECENTLY JOINED ══════════ */}
       <div className="dash-section">
         <div className="dash-section-header">
           <p className="dash-eyebrow">Activity</p>

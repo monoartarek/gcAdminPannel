@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Parse from "../../parseConfig";
 import "./MakeAppAdmin.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faShield, faUserShield, faRotateRight,
+  faTableList, faBorderAll,
+} from "@fortawesome/free-solid-svg-icons";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 25;
 
 /* ── helpers ── */
-function getInitial(name) {
-  return (name || "?").charAt(0).toUpperCase();
-}
+function getInitial(name) { return (name || "?").charAt(0).toUpperCase(); }
 function getAvatarColor(str) {
   const p = ["#6366f1","#f472b6","#34d399","#fbbf24","#f87171","#60a5fa","#a78bfa","#22d3ee"];
   let h = 0;
@@ -28,21 +31,48 @@ function copyToClipboard(text, showToast) {
     });
 }
 
+/* ── build server-side query ── */
+function buildQuery(User, roleFilter, srch) {
+  const trim = srch.trim();
+  if (trim) {
+    const queries = [];
+    const qN = new Parse.Query(User); qN.contains("name",     trim); queries.push(qN);
+    const qU = new Parse.Query(User); qU.contains("username", trim); queries.push(qU);
+    const uidNum = parseInt(trim);
+    if (!isNaN(uidNum)) {
+      const qI = new Parse.Query(User); qI.equalTo("uid", uidNum); queries.push(qI);
+    }
+    const combined = Parse.Query.or(...queries);
+    if (roleFilter === "admin") combined.equalTo("isAdmin", true);
+    if (roleFilter === "user")  combined.notEqualTo("isAdmin", true);
+    return combined;
+  }
+  const q = new Parse.Query(User);
+  if (roleFilter === "admin") q.equalTo("isAdmin", true);
+  if (roleFilter === "user")  q.notEqualTo("isAdmin", true);
+  return q;
+}
+
 /* ════════════════════════════════════════════════════════
    COMPONENT
 ════════════════════════════════════════════════════════ */
 export default function MakeAppAdmin() {
   const [users,         setUsers]         = useState([]);
+  const [searchInput,   setSearchInput]   = useState("");
   const [search,        setSearch]        = useState("");
   const [roleFilter,    setRoleFilter]    = useState("all");
   const [loading,       setLoading]       = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [page,          setPage]          = useState(0);
+  const [totalCount,    setTotalCount]    = useState(0);
   const [viewMode,      setViewMode]      = useState("list");
   const [toast,         setToast]         = useState(null);
   const [animated,      setAnimated]      = useState(false);
   const [confirmModal,  setConfirmModal]  = useState(null);
-  const [fontSize,      setFontSize]      = useState("md"); // "sm" | "md" | "lg"
+  const [fontSize,      setFontSize]      = useState("md");
+
+  /* stat counts */
+  const [statCounts, setStatCounts] = useState({ total: 0, admin: 0, user: 0 });
 
   /* toast */
   const showToast = useCallback((msg, type = "success") => {
@@ -50,40 +80,60 @@ export default function MakeAppAdmin() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  /* fetch */
-  const fetchUsers = useCallback(async () => {
+  /* debounce search */
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(0); }, 380);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  /* ── stat counts ── */
+  const fetchStatCounts = useCallback(async () => {
+    try {
+      const User = Parse.Object.extend("_User");
+      const mk   = { useMasterKey: true };
+      const qTotal = new Parse.Query(User);
+      const qAdmin = new Parse.Query(User); qAdmin.equalTo("isAdmin", true);
+      const qUser  = new Parse.Query(User); qUser.notEqualTo("isAdmin", true);
+      const [total, admin, user] = await Promise.all([
+        qTotal.count(mk), qAdmin.count(mk), qUser.count(mk),
+      ]);
+      setStatCounts({ total, admin, user });
+    } catch (err) { console.error("Stat count error:", err); }
+  }, []);
+
+  /* ── fetch page ── */
+  const fetchPage = useCallback(async (pageNum, roleF, srch) => {
     setLoading(true);
     setAnimated(false);
     try {
       const User = Parse.Object.extend("_User");
-      let all = [], skip = 0;
-      while (true) {
-        const q = new Parse.Query(User);
-        q.limit(1000);
-        q.skip(skip);
-        q.descending("createdAt");
-        q.select("uid", "name", "username", "isAdmin", "avatar");
-        const batch = await q.find({ useMasterKey: true });
-        if (!batch.length) break;
-        all = [...all, ...batch.map(u => {
-          const av = u.get("avatar");
-          let avatarUrl = null;
-          if (av && typeof av.url === "function") avatarUrl = av.url();
-          else if (typeof av === "string") avatarUrl = av;
-          return {
-            objectId: u.id,
-            uid:      String(u.get("uid") || u.id),
-            name:     u.get("name")     || "—",
-            username: u.get("username") || "anonymous",
-            isAdmin:  !!u.get("isAdmin"),
-            avatar:   avatarUrl,
-          };
-        })];
-        if (batch.length < 1000) break;
-        skip += 1000;
-      }
-      setUsers(all);
-      setPage(0);
+      const mk   = { useMasterKey: true };
+
+      const q      = buildQuery(User, roleF, srch);
+      const countQ = buildQuery(User, roleF, srch);
+
+      q.descending("createdAt");
+      q.limit(PAGE_SIZE);
+      q.skip(pageNum * PAGE_SIZE);
+      q.select("uid", "name", "username", "isAdmin", "avatar");
+
+      const [batch, count] = await Promise.all([q.find(mk), countQ.count(mk)]);
+
+      setTotalCount(count);
+      setUsers(batch.map(u => {
+        const av = u.get("avatar");
+        let avatarUrl = null;
+        if (av && typeof av.url === "function") avatarUrl = av.url();
+        else if (typeof av === "string") avatarUrl = av;
+        return {
+          objectId: u.id,
+          uid:      String(u.get("uid") || u.id),
+          name:     u.get("name")     || "—",
+          username: u.get("username") || "anonymous",
+          isAdmin:  !!u.get("isAdmin"),
+          avatar:   avatarUrl,
+        };
+      }));
     } catch (err) {
       showToast("Fetch failed: " + err.message, "error");
     } finally {
@@ -92,29 +142,24 @@ export default function MakeAppAdmin() {
     }
   }, [showToast]);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => {
+    fetchPage(page, roleFilter, search);
+  }, [page, roleFilter, search, fetchPage]);
 
-  /* filter */
-  const displayed = useMemo(() => {
-    let list = [...users];
-    if (roleFilter === "admin") list = list.filter(u => u.isAdmin);
-    if (roleFilter === "user")  list = list.filter(u => !u.isAdmin);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(u =>
-        u.uid.toLowerCase().includes(q)      ||
-        u.name.toLowerCase().includes(q)     ||
-        u.username.toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [users, search, roleFilter]);
+  useEffect(() => { fetchStatCounts(); }, [fetchStatCounts]);
 
-  const totalPages = Math.ceil(displayed.length / PAGE_SIZE);
-  const pageItems  = displayed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const adminCount = users.filter(u => u.isAdmin).length;
+  /* ── pagination ── */
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const pageRange  = useMemo(() => {
+    const d = 2, r = [];
+    for (let i = Math.max(0, page - d); i <= Math.min(totalPages - 1, page + d); i++) r.push(i);
+    return r;
+  }, [page, totalPages]);
+  const changePage = n => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  /* toggle admin */
+  const changeRole = key => { setRoleFilter(key); setPage(0); };
+
+  /* ── toggle admin ── */
   const confirmToggle = async () => {
     if (!confirmModal) return;
     const user   = confirmModal;
@@ -129,25 +174,17 @@ export default function MakeAppAdmin() {
       setUsers(prev => prev.map(u =>
         u.objectId === user.objectId ? { ...u, isAdmin: newVal } : u
       ));
+      fetchStatCounts();
       showToast(
         newVal ? `${user.username} is now an Admin` : `${user.username} admin removed`,
         newVal ? "success" : "info"
       );
     } catch (err) {
       showToast("Failed: " + err.message, "error");
-    } finally {
-      setActionLoading(null);
-    }
+    } finally { setActionLoading(null); }
   };
 
-  /* pagination range */
-  const pageRange = useMemo(() => {
-    const d = 2, r = [];
-    for (let i = Math.max(0, page - d); i <= Math.min(totalPages - 1, page + d); i++) r.push(i);
-    return r;
-  }, [page, totalPages]);
-
-  const changePage = n => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const refresh = () => { fetchPage(page, roleFilter, search); fetchStatCounts(); };
 
   /* ════════════ RENDER ════════════ */
   return (
@@ -181,8 +218,7 @@ export default function MakeAppAdmin() {
               <button className="adm-modal-cancel" onClick={() => setConfirmModal(null)}>Cancel</button>
               <button
                 className={`adm-modal-ok ${confirmModal.isAdmin ? "is-red" : "is-amber"}`}
-                onClick={confirmToggle}
-              >
+                onClick={confirmToggle}>
                 {confirmModal.isAdmin ? "Remove" : "Make Admin"}
               </button>
             </div>
@@ -190,29 +226,22 @@ export default function MakeAppAdmin() {
         </div>
       )}
 
-      {/* ── Page header ── */}
+      {/* ── Header ── */}
       <div className="adm-header">
         <div>
           <p className="adm-label">Admin Management</p>
           <h1 className="adm-title">App Admins</h1>
           <p className="adm-sub">
-            {loading ? "Loading…" : `${users.length.toLocaleString()} users · ${adminCount} admins`}
+            {`${statCounts.total.toLocaleString()} users · ${statCounts.admin} admins · showing ${users.length} of ${totalCount}`}
           </p>
         </div>
         <div className="adm-header-actions">
-          {/* Font size */}
+          {/* Font size toggle */}
           <div className="adm-toggle adm-fs-toggle">
-            {[
-              { key: "sm", label: "S" },
-              { key: "md", label: "M" },
-              { key: "lg", label: "L" },
-            ].map(f => (
-              <button
-                key={f.key}
+            {[{ key: "sm", label: "S" }, { key: "md", label: "M" }, { key: "lg", label: "L" }].map(f => (
+              <button key={f.key}
                 className={`adm-toggle-btn adm-fs-btn ${fontSize === f.key ? "on" : ""}`}
-                onClick={() => setFontSize(f.key)}
-                title={`${f.key === "sm" ? "Small" : f.key === "md" ? "Medium" : "Large"} font`}
-              >
+                onClick={() => setFontSize(f.key)}>
                 {f.label}
               </button>
             ))}
@@ -220,12 +249,16 @@ export default function MakeAppAdmin() {
           {/* View toggle */}
           <div className="adm-toggle">
             <button className={`adm-toggle-btn ${viewMode === "list" ? "on" : ""}`}
-              onClick={() => setViewMode("list")}>≡</button>
+              onClick={() => setViewMode("list")} title="List view">
+              <FontAwesomeIcon icon={faTableList} />
+            </button>
             <button className={`adm-toggle-btn ${viewMode === "card" ? "on" : ""}`}
-              onClick={() => setViewMode("card")}>⊞</button>
+              onClick={() => setViewMode("card")} title="Card view">
+              <FontAwesomeIcon icon={faBorderAll} />
+            </button>
           </div>
-          <button className="adm-refresh" onClick={fetchUsers} disabled={loading}>
-            {loading ? <span className="adm-spin" /> : "↻"}
+          <button className="adm-refresh" onClick={refresh} disabled={loading} title="Refresh">
+            {loading ? <span className="adm-spin" /> : <FontAwesomeIcon icon={faRotateRight} />}
           </button>
         </div>
       </div>
@@ -233,18 +266,16 @@ export default function MakeAppAdmin() {
       {/* ── Stat pills ── */}
       <div className="adm-pills">
         {[
-          { key: "all",   label: "All",     val: users.length,              dot: "#818cf8" },
-          { key: "admin", label: "Admins",  val: adminCount,                dot: "#fbbf24" },
-          { key: "user",  label: "Regular", val: users.length - adminCount, dot: "#60a5fa" },
+          { key: "all",   label: "All",     val: statCounts.total, dot: "#818cf8" },
+          { key: "admin", label: "Admins",  val: statCounts.admin, dot: "#f5a623" },
+          { key: "user",  label: "Regular", val: statCounts.user,  dot: "#60a5fa" },
         ].map((s, i) => (
-          <button
-            key={s.key}
+          <button key={s.key}
             className={`adm-pill ${roleFilter === s.key ? "adm-pill--on" : ""}`}
             style={{ animationDelay: `${i * 60}ms` }}
-            onClick={() => { setRoleFilter(s.key); setPage(0); }}
-          >
+            onClick={() => changeRole(s.key)}>
             <span className="adm-pill-dot" style={{ background: s.dot }} />
-            <span className="adm-pill-val">{loading ? "…" : s.val}</span>
+            <span className="adm-pill-val">{s.val.toLocaleString()}</span>
             <span className="adm-pill-label">{s.label}</span>
           </button>
         ))}
@@ -254,20 +285,28 @@ export default function MakeAppAdmin() {
       <div className="adm-search-row">
         <div className="adm-search-wrap">
           <span className="adm-search-icon">⌕</span>
-          <input
-            className="adm-search"
+          <input className="adm-search"
             placeholder="Search name, username or UID…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0); }}
-          />
-          {search && (
-            <button className="adm-search-x" onClick={() => { setSearch(""); setPage(0); }}>✕</button>
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)} />
+          {searchInput && (
+            <button className="adm-search-x"
+              onClick={() => { setSearchInput(""); setSearch(""); setPage(0); }}>✕</button>
           )}
         </div>
         {!loading && (
-          <span className="adm-count">{displayed.length} result{displayed.length !== 1 ? "s" : ""}</span>
+          <span className="adm-count">{totalCount} result{totalCount !== 1 ? "s" : ""}</span>
         )}
       </div>
+
+      {/* ── Page indicator ── */}
+      {!loading && totalPages > 1 && (
+        <div className="adm-page-indicator">
+          <span>Page <strong>{page + 1}</strong> of <strong>{totalPages}</strong></span>
+          <span className="adm-page-indicator-dot" />
+          <span>Records <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)}</strong> of <strong>{totalCount}</strong></span>
+        </div>
+      )}
 
       {/* ── Content ── */}
       {loading ? (
@@ -275,12 +314,12 @@ export default function MakeAppAdmin() {
           <div className="adm-loading-ring" />
           <p>Fetching users…</p>
         </div>
-      ) : pageItems.length === 0 ? (
+      ) : users.length === 0 ? (
         <div className="adm-empty">
           <span className="adm-empty-icon">★</span>
           <p>No users found</p>
           <button className="adm-empty-reset"
-            onClick={() => { setSearch(""); setRoleFilter("all"); setPage(0); }}>
+            onClick={() => { setSearchInput(""); setSearch(""); setRoleFilter("all"); setPage(0); }}>
             Clear filters
           </button>
         </div>
@@ -288,11 +327,12 @@ export default function MakeAppAdmin() {
 
         /* ── CARD VIEW ── */
         <div className={`adm-cards ${animated ? "in" : ""}`}>
-          {pageItems.map((user, i) => {
+          {users.map((user, i) => {
             const clr       = getAvatarColor(user.username);
             const isLoading = actionLoading === user.objectId;
             return (
-              <div key={user.objectId} className={`adm-card ${user.isAdmin ? "adm-card--admin" : ""}`}
+              <div key={user.objectId}
+                className={`adm-card ${user.isAdmin ? "adm-card--admin" : ""}`}
                 style={{ animationDelay: `${i * 40}ms` }}>
 
                 {user.isAdmin && <span className="adm-admin-tag">★ Admin</span>}
@@ -308,17 +348,13 @@ export default function MakeAppAdmin() {
                 </div>
 
                 <p className="adm-card-name">{user.name}</p>
-                <p
-                  className="adm-card-user copyable"
+                <p className="adm-card-user copyable"
                   onClick={() => copyToClipboard(user.username, showToast)}
-                  title="Copy username"
-                >@{user.username}</p>
+                  title="Copy username">@{user.username}</p>
 
-                <div
-                  className="adm-uid copyable"
+                <div className="adm-uid copyable"
                   onClick={() => copyToClipboard(user.uid, showToast)}
-                  title="Copy UID"
-                >
+                  title="Copy UID">
                   <span className="adm-uid-tag">UID</span>
                   <span className="adm-uid-val">{user.uid}</span>
                 </div>
@@ -326,11 +362,13 @@ export default function MakeAppAdmin() {
                 <button
                   className={`adm-btn ${user.isAdmin ? "adm-btn--remove" : "adm-btn--make"}`}
                   disabled={isLoading}
-                  onClick={() => setConfirmModal(user)}
-                >
-                  {isLoading
-                    ? <span className="adm-spin" />
-                    : user.isAdmin ? "Remove Admin" : "Make Admin"}
+                  onClick={() => setConfirmModal(user)}>
+                  {isLoading ? <span className="adm-spin" /> : (
+                    <>
+                      <FontAwesomeIcon icon={user.isAdmin ? faUserShield : faShield} />
+                      {user.isAdmin ? " Remove Admin" : " Make Admin"}
+                    </>
+                  )}
                 </button>
               </div>
             );
@@ -341,19 +379,22 @@ export default function MakeAppAdmin() {
 
         /* ── LIST VIEW ── */
         <div className={`adm-list ${animated ? "in" : ""}`}>
+
+          {/* Header */}
           <div className="adm-list-head">
-            <span style={{ width: 44, flexShrink: 0 }} />
-            <span className="adm-lh adm-lh--grow">Name</span>
-            <span className="adm-lh adm-lh--sm">UID</span>
+            <span className="adm-lh" style={{ width: 52, flexShrink: 0 }} />
+            <span className="adm-lh adm-lh--grow">Name / Username</span>
+            <span className="adm-lh adm-lh--uid">UID</span>
             <span className="adm-lh">Role</span>
             <span className="adm-lh adm-lh--right">Action</span>
           </div>
 
-          {pageItems.map((user, i) => {
+          {users.map((user, i) => {
             const clr       = getAvatarColor(user.username);
             const isLoading = actionLoading === user.objectId;
             return (
-              <div key={user.objectId} className="adm-row"
+              <div key={user.objectId}
+                className={`adm-row ${user.isAdmin ? "adm-row--admin" : ""}`}
                 style={{ animationDelay: `${i * 25}ms` }}>
 
                 {/* Avatar */}
@@ -370,26 +411,27 @@ export default function MakeAppAdmin() {
                 {/* Name + username */}
                 <div className="adm-cell adm-cell--grow">
                   <span className="adm-row-name">{user.name}</span>
-                  <span
-                    className="adm-row-user copyable"
+                  <span className="adm-row-user copyable"
                     onClick={() => copyToClipboard(user.username, showToast)}
-                    title="Copy"
-                  >@{user.username}</span>
+                    title="Copy">@{user.username}</span>
                 </div>
 
                 {/* UID */}
-                <div className="adm-cell adm-cell--sm">
-                  <span
-                    className="adm-row-uid copyable"
+                <div className="adm-cell adm-cell--uid">
+                  <span className="adm-row-uid adm-row-uid--chip copyable"
                     onClick={() => copyToClipboard(user.uid, showToast)}
-                    title="Copy UID"
-                  >{user.uid}</span>
+                    title="Copy UID">
+                    {user.uid}
+                  </span>
                 </div>
 
                 {/* Role badge */}
                 <div className="adm-cell">
                   <span className={`adm-badge ${user.isAdmin ? "adm-badge--admin" : "adm-badge--user"}`}>
-                    {user.isAdmin ? "★ Admin" : "User"}
+                    {user.isAdmin
+                      ? <><FontAwesomeIcon icon={faShield} /> Admin</>
+                      : "User"
+                    }
                   </span>
                 </div>
 
@@ -398,13 +440,16 @@ export default function MakeAppAdmin() {
                   <button
                     className={`adm-btn adm-btn--sm ${user.isAdmin ? "adm-btn--remove" : "adm-btn--make"}`}
                     disabled={isLoading}
-                    onClick={() => setConfirmModal(user)}
-                  >
-                    {isLoading
-                      ? <span className="adm-spin" />
-                      : user.isAdmin ? "Remove" : "Make Admin"}
+                    onClick={() => setConfirmModal(user)}>
+                    {isLoading ? <span className="adm-spin" /> : (
+                      <>
+                        <FontAwesomeIcon icon={user.isAdmin ? faUserShield : faShield} />
+                        {user.isAdmin ? " Remove" : " Make Admin"}
+                      </>
+                    )}
                   </button>
                 </div>
+
               </div>
             );
           })}
@@ -415,9 +460,9 @@ export default function MakeAppAdmin() {
       {totalPages > 1 && (
         <div className="adm-pages">
           <button className="adm-page adm-page--nav"
-            disabled={page === 0} onClick={() => changePage(0)}>«</button>
+            disabled={page === 0 || loading} onClick={() => changePage(0)}>«</button>
           <button className="adm-page adm-page--nav"
-            disabled={page === 0} onClick={() => changePage(page - 1)}>‹</button>
+            disabled={page === 0 || loading} onClick={() => changePage(page - 1)}>‹</button>
 
           {pageRange[0] > 0 && (
             <><button className="adm-page" onClick={() => changePage(0)}>1</button>
@@ -434,9 +479,9 @@ export default function MakeAppAdmin() {
           )}
 
           <button className="adm-page adm-page--nav"
-            disabled={page === totalPages - 1} onClick={() => changePage(page + 1)}>›</button>
+            disabled={page === totalPages - 1 || loading} onClick={() => changePage(page + 1)}>›</button>
           <button className="adm-page adm-page--nav"
-            disabled={page === totalPages - 1} onClick={() => changePage(totalPages - 1)}>»</button>
+            disabled={page === totalPages - 1 || loading} onClick={() => changePage(totalPages - 1)}>»</button>
         </div>
       )}
 

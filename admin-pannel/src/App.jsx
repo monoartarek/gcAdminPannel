@@ -41,6 +41,8 @@ import GamesHistoryPage from './Pages/GamesHistory';
 import AgoraPage from './Pages/Agora';
 import ReportsPage from './Pages/Reports';
 // import Streamings from './Pages/Streamings';
+import AllAgency from './Pages/AllAgency';
+import AllMessagesPage from './Pages/AllMessages';
 
 
 import Login from './Pages/Login';
@@ -163,6 +165,10 @@ function App() {
                     <Route path ="/reports" element={<ReportsPage />} />
 
                     {/* <Route path ="/live-streaming" element={<Streamings />} /> */}
+
+                    <Route path ="/all-agencies" element={<AllAgency />} />
+
+                    <Route path ="/messages" element={<AllMessagesPage />} />
 
                     
                   </Routes>

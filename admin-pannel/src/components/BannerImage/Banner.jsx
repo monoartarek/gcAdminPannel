@@ -91,7 +91,7 @@ export default function Banners() {
   const fetchBanners = useCallback(async () => {
     setLoading(true); setAnimated(false);
     try {
-      const Banner = Parse.Object.extend("Banners");
+      const Banner = Parse.Object.extend("banners");
       const q = new Parse.Query(Banner);
       q.descending("createdAt"); q.limit(500);
       const results = await q.find({ useMasterKey: true });
@@ -141,7 +141,7 @@ export default function Banners() {
     try {
       const parseFile = new Parse.File(file.name, file);
       await parseFile.save({ useMasterKey: true });
-      const Banner = Parse.Object.extend("Banners");
+      const Banner = Parse.Object.extend("banners");
       const obj = new Banner();
       obj.set("image", parseFile);
       await obj.save(null, { useMasterKey: true });
@@ -156,7 +156,7 @@ export default function Banners() {
     if (!editModal) return;
     setUploading(true);
     try {
-      const Banner = Parse.Object.extend("Banners");
+      const Banner = Parse.Object.extend("banners");
       const obj = await new Parse.Query(Banner).get(editModal.id, { useMasterKey: true });
       if (file) {
         const parseFile = new Parse.File(file.name, file);
@@ -175,7 +175,7 @@ export default function Banners() {
     if (!deleteModal) return;
     const id = deleteModal.id; setDeleteModal(null);
     try {
-      const Banner = Parse.Object.extend("Banners");
+      const Banner = Parse.Object.extend("banners");
       const obj = await new Parse.Query(Banner).get(id, { useMasterKey: true });
       await obj.destroy({ useMasterKey: true });
       setBanners(prev => prev.filter(b => b.id !== id));

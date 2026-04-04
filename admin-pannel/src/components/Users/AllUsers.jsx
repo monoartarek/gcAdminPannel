@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Parse from "../../parseConfig";
 import "./AllUsers.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faEye, faPen, faBan, faCircleCheck,
+  faRotateRight, faTableList, faBorderAll,
+} from "@fortawesome/free-solid-svg-icons";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 25;
 
 /* ── helpers ── */
-function getInitial(name) {
-  return (name || "?").charAt(0).toUpperCase();
-}
+function getInitial(name) { return (name || "?").charAt(0).toUpperCase(); }
 function getAvatarColor(str) {
-  const palette = [
-    "#6366f1","#f472b6","#34d399","#fbbf24",
-    "#f87171","#60a5fa","#a78bfa","#22d3ee",
-  ];
+  const palette = ["#6366f1","#f472b6","#34d399","#fbbf24","#f87171","#60a5fa","#a78bfa","#22d3ee"];
   let hash = 0;
   for (let i = 0; i < (str || "").length; i++)
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -35,34 +35,59 @@ function copyToClipboard(text, showToast) {
     showToast(`Copied: ${text}`, "copy");
   }).catch(() => {
     const el = document.createElement("textarea");
-    el.value = text;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand("copy");
+    el.value = text; document.body.appendChild(el);
+    el.select(); document.execCommand("copy");
     document.body.removeChild(el);
     showToast(`Copied: ${text}`, "copy");
   });
+}
+
+/* ── build server-side query ── */
+function buildSearchQuery(User, statusFilter, srch) {
+  const trim = srch.trim();
+  if (trim) {
+    const queries = [];
+    const qN = new Parse.Query(User); qN.contains("name",     trim); queries.push(qN);
+    const qU = new Parse.Query(User); qU.contains("username", trim); queries.push(qU);
+    const uidNum = parseInt(trim);
+    if (!isNaN(uidNum)) {
+      const qI = new Parse.Query(User); qI.equalTo("uid", uidNum); queries.push(qI);
+    }
+    const combined = Parse.Query.or(...queries);
+    if (statusFilter === "suspended") combined.equalTo("status", "suspended");
+    if (statusFilter === "active")    combined.notEqualTo("status", "suspended");
+    return combined;
+  }
+  const q = new Parse.Query(User);
+  if (statusFilter === "suspended") q.equalTo("status", "suspended");
+  if (statusFilter === "active")    q.notEqualTo("status", "suspended");
+  return q;
 }
 
 /* ════════════════════════════════════════════════════════
    COMPONENT
 ════════════════════════════════════════════════════════ */
 export default function AllUsers() {
-  const [users,        setUsers]        = useState([]);
-  const [search,       setSearch]       = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [loading,      setLoading]      = useState(true);
-  const [actionLoading,setActionLoading]= useState(null);
-  const [page,         setPage]         = useState(0);
-  const [viewMode,     setViewMode]     = useState("list");
-  const [toast,        setToast]        = useState(null);
-  const [animated,     setAnimated]     = useState(false);
-  const [sortBy,       setSortBy]       = useState("newest");
+  const [users,         setUsers]         = useState([]);
+  const [searchInput,   setSearchInput]   = useState("");
+  const [search,        setSearch]        = useState("");
+  const [statusFilter,  setStatusFilter]  = useState("all");
+  const [sortBy,        setSortBy]        = useState("newest");
+  const [loading,       setLoading]       = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [page,          setPage]          = useState(0);
+  const [totalCount,    setTotalCount]    = useState(0);
+  const [viewMode,      setViewMode]      = useState("list");
+  const [toast,         setToast]         = useState(null);
+  const [animated,      setAnimated]      = useState(false);
+
+  /* stat counts */
+  const [statCounts, setStatCounts] = useState({ total: 0, active: 0, suspended: 0 });
 
   /* modals */
-  const [viewUser,       setViewUser]       = useState(null);
-  const [editUser,       setEditUser]       = useState(null);
-  const [suspendModal,   setSuspendModal]   = useState(null);
+  const [viewUser,     setViewUser]     = useState(null);
+  const [editUser,     setEditUser]     = useState(null);
+  const [suspendModal, setSuspendModal] = useState(null);
 
   /* ── toast ── */
   const showToast = useCallback((msg, type = "success") => {
@@ -70,46 +95,71 @@ export default function AllUsers() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  /* ── fetch ── */
-  const fetchUsers = useCallback(async () => {
+  /* ── debounce search ── */
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(0); }, 380);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  /* ── stat counts ── */
+  const fetchStatCounts = useCallback(async () => {
+    try {
+      const User = Parse.Object.extend("_User");
+      const mk   = { useMasterKey: true };
+      const qTotal     = new Parse.Query(User);
+      const qSuspended = new Parse.Query(User); qSuspended.equalTo("status", "suspended");
+      const qActive    = new Parse.Query(User); qActive.notEqualTo("status", "suspended");
+      const [total, suspended, active] = await Promise.all([
+        qTotal.count(mk), qSuspended.count(mk), qActive.count(mk),
+      ]);
+      setStatCounts({ total, suspended, active });
+    } catch (err) { console.error("Stat count error:", err); }
+  }, []);
+
+  /* ── fetch page ── */
+  const fetchPage = useCallback(async (pageNum, statusF, srch, sort) => {
     setLoading(true);
     setAnimated(false);
     try {
       const User = Parse.Object.extend("_User");
-      let all = [], skip = 0;
-      const limit = 1000;
-      while (true) {
-        const q = new Parse.Query(User);
-        q.limit(limit);
-        q.skip(skip);
-        q.descending("createdAt");
-        const batch = await q.find({ useMasterKey: true });
-        if (batch.length === 0) break;
-        all = [...all, ...batch.map(u => {
-          const avatarRaw = u.get("avatar");
-          let avatarUrl = null;
-          if (avatarRaw && typeof avatarRaw.url === "function") avatarUrl = avatarRaw.url();
-          else if (typeof avatarRaw === "string") avatarUrl = avatarRaw;
-          return {
-            objectId:  u.id,
-            uid:       String(u.get("uid") || u.id),
-            name:      u.get("name")     || "—",
-            username:  u.get("username") || "anonymous",
-            coin:      u.get("coin")     || 0,
-            gender:    u.get("gender")   || "—",
-            status:    u.get("status")   || "active",
-            mode:      u.get("mode")     || "—",
-            email:     u.get("email")    || "—",
-            birthday:  u.get("birthday") || null,
-            avatar:    avatarUrl,
-            createdAt: u.get("createdAt"),
-          };
-        })];
-        if (batch.length < limit) break;
-        skip += limit;
-      }
-      setUsers(all);
-      setPage(0);
+      const mk   = { useMasterKey: true };
+
+      const q      = buildSearchQuery(User, statusF, srch);
+      const countQ = buildSearchQuery(User, statusF, srch);
+
+      /* sort */
+      if (sort === "oldest") q.ascending("createdAt");
+      else if (sort === "name") q.ascending("name");
+      else if (sort === "coins") q.descending("coin");
+      else q.descending("createdAt");
+
+      q.limit(PAGE_SIZE);
+      q.skip(pageNum * PAGE_SIZE);
+      q.select("uid","name","username","coin","gender","status","mode","email","birthday","avatar","createdAt");
+
+      const [batch, count] = await Promise.all([q.find(mk), countQ.count(mk)]);
+
+      setTotalCount(count);
+      setUsers(batch.map(u => {
+        const av = u.get("avatar");
+        let avatarUrl = null;
+        if (av && typeof av.url === "function") avatarUrl = av.url();
+        else if (typeof av === "string") avatarUrl = av;
+        return {
+          objectId:  u.id,
+          uid:       String(u.get("uid") || u.id),
+          name:      u.get("name")     || "—",
+          username:  u.get("username") || "anonymous",
+          coin:      u.get("coin")     || 0,
+          gender:    u.get("gender")   || "—",
+          status:    u.get("status")   || "active",
+          mode:      u.get("mode")     || "—",
+          email:     u.get("email")    || "—",
+          birthday:  u.get("birthday") || null,
+          avatar:    avatarUrl,
+          createdAt: u.get("createdAt"),
+        };
+      }));
     } catch (err) {
       console.error(err);
       showToast("Fetch failed: " + err.message, "error");
@@ -119,32 +169,21 @@ export default function AllUsers() {
     }
   }, [showToast]);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => {
+    fetchPage(page, statusFilter, search, sortBy);
+  }, [page, statusFilter, search, sortBy, fetchPage]);
 
-  /* ── filter + sort ── */
-  const displayed = useMemo(() => {
-    let list = [...users];
-    if (statusFilter !== "all") list = list.filter(u => u.status === statusFilter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(u =>
-        u.uid.toLowerCase().includes(q)      ||
-        u.username.toLowerCase().includes(q) ||
-        u.name.toLowerCase().includes(q)
-      );
-    }
-    if (sortBy === "name")    list.sort((a, b) => a.name.localeCompare(b.name));
-    if (sortBy === "coins")   list.sort((a, b) => b.coin - a.coin);
-    if (sortBy === "oldest")  list.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    return list;
-  }, [users, search, statusFilter, sortBy]);
+  useEffect(() => { fetchStatCounts(); }, [fetchStatCounts]);
 
-  const totalPages  = Math.ceil(displayed.length / PAGE_SIZE);
-  const pageItems   = displayed.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-  /* stats */
-  const activeCount    = users.filter(u => u.status !== "suspended").length;
-  const suspendedCount = users.filter(u => u.status === "suspended").length;
+  /* ── pagination ── */
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const pageRange  = useMemo(() => {
+    const delta = 2, range = [];
+    for (let i = Math.max(0, page - delta); i <= Math.min(totalPages - 1, page + delta); i++)
+      range.push(i);
+    return range;
+  }, [page, totalPages]);
+  const changePage = n => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   /* ── suspend toggle ── */
   const confirmSuspend = async () => {
@@ -155,22 +194,18 @@ export default function AllUsers() {
     setActionLoading(user.objectId);
     try {
       const User = Parse.Object.extend("_User");
-      const q    = new Parse.Query(User);
-      const obj  = await q.get(user.objectId, { useMasterKey: true });
+      const obj  = await new Parse.Query(User).get(user.objectId, { useMasterKey: true });
       obj.set("status", newStatus);
       await obj.save(null, { useMasterKey: true });
       setUsers(prev => prev.map(u =>
         u.objectId === user.objectId ? { ...u, status: newStatus } : u
       ));
-      showToast(
-        `${user.username} ${newStatus === "suspended" ? "suspended" : "activated"}`,
-        newStatus === "suspended" ? "info" : "success"
-      );
+      fetchStatCounts();
+      showToast(`${user.username} ${newStatus === "suspended" ? "suspended" : "activated"}`,
+        newStatus === "suspended" ? "info" : "success");
     } catch (err) {
       showToast("Failed: " + err.message, "error");
-    } finally {
-      setActionLoading(null);
-    }
+    } finally { setActionLoading(null); }
   };
 
   /* ── edit save ── */
@@ -179,8 +214,7 @@ export default function AllUsers() {
     setActionLoading(editUser.objectId);
     try {
       const User = Parse.Object.extend("_User");
-      const q    = new Parse.Query(User);
-      const obj  = await q.get(editUser.objectId, { useMasterKey: true });
+      const obj  = await new Parse.Query(User).get(editUser.objectId, { useMasterKey: true });
       obj.set("username", editUser.username);
       obj.set("coin",     Number(editUser.coin) || 0);
       obj.set("gender",   editUser.gender);
@@ -193,20 +227,13 @@ export default function AllUsers() {
       showToast(`${editUser.username} updated successfully`, "success");
     } catch (err) {
       showToast("Update failed: " + err.message, "error");
-    } finally {
-      setActionLoading(null);
-    }
+    } finally { setActionLoading(null); }
   };
 
-  /* ── pagination ── */
-  const pageRange = useMemo(() => {
-    const delta = 2, range = [];
-    for (let i = Math.max(0, page - delta); i <= Math.min(totalPages - 1, page + delta); i++)
-      range.push(i);
-    return range;
-  }, [page, totalPages]);
-
-  const changePage = n => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const refresh = () => {
+    fetchPage(page, statusFilter, search, sortBy);
+    fetchStatCounts();
+  };
 
   /* ════════════ VIEW USER MODAL ════════════ */
   if (viewUser) {
@@ -215,7 +242,6 @@ export default function AllUsers() {
       <div className="au-profile-overlay">
         <div className="au-profile-modal">
           <button className="au-back-btn" onClick={() => setViewUser(null)}>← Back</button>
-
           <div className="au-profile-avatar-wrap">
             {viewUser.avatar
               ? <img src={viewUser.avatar} alt={viewUser.username} className="au-profile-avatar" />
@@ -225,18 +251,14 @@ export default function AllUsers() {
             }
             <span className={`au-profile-status-dot ${viewUser.status === "suspended" ? "is-suspended" : "is-active"}`} />
           </div>
-
           <h2 className="au-profile-name">{viewUser.name}</h2>
-          <p
-            className="au-profile-uname au-copyable"
-            onClick={() => copyToClipboard(viewUser.username, showToast)}
-            title="Click to copy">
+          <p className="au-profile-uname au-copyable"
+            onClick={() => copyToClipboard(viewUser.username, showToast)} title="Click to copy">
             @{viewUser.username} <span className="au-copy-icon">⎘</span>
           </p>
-
           <div className="au-profile-grid">
             {[
-              { label: "UID",      value: viewUser.uid,      copy: true },
+              { label: "UID",      value: viewUser.uid,      copy: true  },
               { label: "Coins",    value: viewUser.coin,     copy: false },
               { label: "Gender",   value: viewUser.gender,   copy: false },
               { label: "Status",   value: viewUser.status,   copy: false },
@@ -245,12 +267,10 @@ export default function AllUsers() {
               { label: "Birthday", value: viewUser.birthday ? new Date(viewUser.birthday).toLocaleDateString("en-GB") : "—", copy: false },
               { label: "Joined",   value: timeAgo(viewUser.createdAt), copy: false },
             ].map(({ label, value, copy }) => (
-              <div
-                key={label}
+              <div key={label}
                 className={`au-profile-field ${copy ? "au-copyable" : ""}`}
                 onClick={copy ? () => copyToClipboard(String(value), showToast) : undefined}
-                title={copy ? "Click to copy" : undefined}
-              >
+                title={copy ? "Click to copy" : undefined}>
                 <span className="au-field-label">{label}</span>
                 <span className="au-field-value">
                   {String(value ?? "—")}
@@ -259,16 +279,16 @@ export default function AllUsers() {
               </div>
             ))}
           </div>
-
           <div className="au-profile-actions">
-            <button className="au-profile-edit-btn" onClick={() => { setViewUser(null); setEditUser(viewUser); }}>
-              Edit User
+            <button className="au-profile-edit-btn"
+              onClick={() => { setViewUser(null); setEditUser(viewUser); }}>
+              <FontAwesomeIcon icon={faPen} /> Edit User
             </button>
             <button
               className={`au-profile-suspend-btn ${viewUser.status === "suspended" ? "is-activate" : ""}`}
-              onClick={() => { setViewUser(null); setSuspendModal(viewUser); }}
-            >
-              {viewUser.status === "suspended" ? "Activate" : "Suspend"}
+              onClick={() => { setViewUser(null); setSuspendModal(viewUser); }}>
+              <FontAwesomeIcon icon={viewUser.status === "suspended" ? faCircleCheck : faBan} />
+              {" "}{viewUser.status === "suspended" ? "Activate" : "Suspend"}
             </button>
           </div>
         </div>
@@ -284,34 +304,26 @@ export default function AllUsers() {
           <button className="au-back-btn" onClick={() => setEditUser(null)}>← Back</button>
           <h2 className="au-edit-title">Edit User</h2>
           <p className="au-edit-subtitle">@{editUser.username}</p>
-
           <div className="au-edit-fields">
             {[
-              { key: "username", label: "Username",  type: "text"   },
-              { key: "coin",     label: "Coins",     type: "number" },
-              { key: "gender",   label: "Gender",    type: "text"   },
-              { key: "mode",     label: "Mode",      type: "text"   },
+              { key: "username", label: "Username", type: "text"   },
+              { key: "coin",     label: "Coins",    type: "number" },
+              { key: "gender",   label: "Gender",   type: "text"   },
+              { key: "mode",     label: "Mode",     type: "text"   },
             ].map(({ key, label, type }) => (
               <div key={key} className="au-edit-field">
                 <label className="au-edit-label">{label}</label>
-                <input
-                  className="au-edit-input"
-                  type={type}
+                <input className="au-edit-input" type={type}
                   value={editUser[key] || ""}
                   onChange={e => setEditUser(prev => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={label}
-                />
+                  placeholder={label} />
               </div>
             ))}
           </div>
-
           <div className="au-edit-actions">
             <button className="au-edit-cancel" onClick={() => setEditUser(null)}>Cancel</button>
-            <button
-              className="au-edit-save"
-              onClick={saveEdit}
-              disabled={actionLoading === editUser.objectId}
-            >
+            <button className="au-edit-save" onClick={saveEdit}
+              disabled={actionLoading === editUser.objectId}>
               {actionLoading === editUser.objectId ? <span className="au-btn-spin" /> : "Save Changes"}
             </button>
           </div>
@@ -334,13 +346,14 @@ export default function AllUsers() {
         </div>
       )}
 
-      {/* ── Suspend Confirm Modal ── */}
+      {/* ── Suspend Modal ── */}
       {suspendModal && (
         <div className="au-overlay" onClick={() => setSuspendModal(null)}>
           <div className="au-modal" onClick={e => e.stopPropagation()}>
             <div className="au-modal-icon"
               style={{ background: suspendModal.status === "suspended" ? "rgba(52,211,153,0.15)" : "rgba(248,113,113,0.15)" }}>
-              {suspendModal.status === "suspended" ? "✓" : "⊘"}
+              <FontAwesomeIcon icon={suspendModal.status === "suspended" ? faCircleCheck : faBan}
+                style={{ color: suspendModal.status === "suspended" ? "#34d399" : "#f87171", fontSize: 22 }} />
             </div>
             <h3 className="au-modal-title">
               {suspendModal.status === "suspended" ? "Activate User" : "Suspend User"}
@@ -355,8 +368,7 @@ export default function AllUsers() {
               <button className="au-modal-cancel" onClick={() => setSuspendModal(null)}>Cancel</button>
               <button
                 className={`au-modal-confirm ${suspendModal.status === "suspended" ? "is-green" : "is-red"}`}
-                onClick={confirmSuspend}
-              >
+                onClick={confirmSuspend}>
                 {suspendModal.status === "suspended" ? "Yes, Activate" : "Yes, Suspend"}
               </button>
             </div>
@@ -370,18 +382,22 @@ export default function AllUsers() {
           <span className="au-eyebrow">User Management</span>
           <h1 className="au-title">All Users</h1>
           <span className="au-subtitle">
-            {loading ? "…" : `${users.length.toLocaleString()} users · ${activeCount} active · ${suspendedCount} suspended`}
+            {`${statCounts.total.toLocaleString()} users · ${statCounts.active} active · ${statCounts.suspended} suspended`}
           </span>
         </div>
         <div className="au-header-right">
           <div className="au-view-toggle">
             <button className={`au-toggle-btn ${viewMode === "list" ? "is-active" : ""}`}
-              onClick={() => setViewMode("list")}>≡ List</button>
+              onClick={() => setViewMode("list")}>
+              <FontAwesomeIcon icon={faTableList} /> List
+            </button>
             <button className={`au-toggle-btn ${viewMode === "card" ? "is-active" : ""}`}
-              onClick={() => setViewMode("card")}>⊞ Cards</button>
+              onClick={() => setViewMode("card")}>
+              <FontAwesomeIcon icon={faBorderAll} /> Cards
+            </button>
           </div>
-          <button className="au-refresh-btn" onClick={fetchUsers} disabled={loading}>
-            {loading ? <span className="au-btn-spin" /> : "↻ Refresh"}
+          <button className="au-refresh-btn" onClick={refresh} disabled={loading}>
+            {loading ? <span className="au-btn-spin" /> : <><FontAwesomeIcon icon={faRotateRight} /> Refresh</>}
           </button>
         </div>
       </div>
@@ -389,15 +405,15 @@ export default function AllUsers() {
       {/* ── Stat Pills ── */}
       <div className="au-stat-pills">
         {[
-          { label: "All",       val: users.length,    color: "violet", key: "all"       },
-          { label: "Active",    val: activeCount,     color: "green",  key: "active"    },
-          { label: "Suspended", val: suspendedCount,  color: "red",    key: "suspended" },
+          { label: "All",       val: statCounts.total,     color: "violet", key: "all"       },
+          { label: "Active",    val: statCounts.active,    color: "green",  key: "active"    },
+          { label: "Suspended", val: statCounts.suspended, color: "red",    key: "suspended" },
         ].map((s, i) => (
           <button key={s.key}
             className={`au-stat-pill au-stat-pill--${s.color} ${statusFilter === s.key ? "is-active" : ""}`}
             style={{ animationDelay: `${i * 70}ms` }}
             onClick={() => { setStatusFilter(s.key); setPage(0); }}>
-            <span className="au-stat-val">{loading ? "…" : s.val.toLocaleString()}</span>
+            <span className="au-stat-val">{s.val.toLocaleString()}</span>
             <span className="au-stat-label">{s.label}</span>
           </button>
         ))}
@@ -409,22 +425,33 @@ export default function AllUsers() {
           <span className="au-search-icon">⌕</span>
           <input className="au-search"
             placeholder="Search name, username or UID…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0); }} />
-          {search && (
-            <button className="au-search-clear" onClick={() => { setSearch(""); setPage(0); }}>✕</button>
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)} />
+          {searchInput && (
+            <button className="au-search-clear"
+              onClick={() => { setSearchInput(""); setSearch(""); setPage(0); }}>✕</button>
           )}
         </div>
-        <select className="au-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+        <select className="au-select" value={sortBy}
+          onChange={e => { setSortBy(e.target.value); setPage(0); }}>
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
           <option value="name">By Name</option>
           <option value="coins">Most Coins</option>
         </select>
         <span className="au-result-count">
-          {loading ? "" : `${displayed.length} result${displayed.length !== 1 ? "s" : ""}`}
+          {!loading && `${totalCount} result${totalCount !== 1 ? "s" : ""}`}
         </span>
       </div>
+
+      {/* ── Page indicator ── */}
+      {!loading && totalPages > 1 && (
+        <div className="au-page-indicator">
+          <span>Page <strong>{page + 1}</strong> of <strong>{totalPages}</strong></span>
+          <span className="au-page-indicator-dot" />
+          <span>Records <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)}</strong> of <strong>{totalCount}</strong></span>
+        </div>
+      )}
 
       {/* ── Content ── */}
       {loading ? (
@@ -435,12 +462,12 @@ export default function AllUsers() {
           </div>
           <p>Fetching users…</p>
         </div>
-      ) : pageItems.length === 0 ? (
+      ) : users.length === 0 ? (
         <div className="au-empty">
           <div className="au-empty-icon">◎</div>
           <p>No users found</p>
           <button className="au-empty-reset"
-            onClick={() => { setSearch(""); setStatusFilter("all"); setPage(0); }}>
+            onClick={() => { setSearchInput(""); setSearch(""); setStatusFilter("all"); setPage(0); }}>
             Clear filters
           </button>
         </div>
@@ -448,17 +475,17 @@ export default function AllUsers() {
 
         /* ════ CARD VIEW ════ */
         <div className={`au-card-grid ${animated ? "is-animated" : ""}`}>
-          {pageItems.map((user, i) => {
+          {users.map((user, i) => {
             const clr       = getAvatarColor(user.username);
             const isLoading = actionLoading === user.objectId;
             const suspended = user.status === "suspended";
             return (
-              <div key={user.objectId} className={`au-card ${suspended ? "au-card--suspended" : ""}`}
+              <div key={user.objectId}
+                className={`au-card ${suspended ? "au-card--suspended" : ""}`}
                 style={{ animationDelay: `${i * 40}ms` }}>
 
                 {suspended && <div className="au-card-suspended-tag">Suspended</div>}
 
-                {/* Avatar */}
                 <div className="au-card-av-wrap">
                   {user.avatar
                     ? <img src={user.avatar} alt={user.username} className="au-card-av" />
@@ -470,7 +497,6 @@ export default function AllUsers() {
                   <div className={`au-card-status-dot ${suspended ? "is-suspended" : "is-active"}`} />
                 </div>
 
-                {/* Info */}
                 <div className="au-card-info">
                   <p className="au-card-name">{user.name}</p>
                   <p className="au-card-uname au-copyable"
@@ -480,7 +506,6 @@ export default function AllUsers() {
                   </p>
                 </div>
 
-                {/* UID chip */}
                 <div className="au-card-uid au-copyable"
                   onClick={() => copyToClipboard(user.uid, showToast)}
                   title="Click to copy UID">
@@ -489,7 +514,6 @@ export default function AllUsers() {
                   <span className="au-copy-icon">⎘</span>
                 </div>
 
-                {/* Meta */}
                 <div className="au-card-meta">
                   <div className="au-card-meta-row">
                     <span className="au-meta-key">Coins</span>
@@ -505,15 +529,22 @@ export default function AllUsers() {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="au-card-actions">
-                  <button className="au-view-btn" onClick={() => setViewUser(user)}>View</button>
-                  <button className="au-edit-btn" onClick={() => setEditUser(user)}>Edit</button>
+                  <button className="au-view-btn" title="View" onClick={() => setViewUser(user)}>
+                    <FontAwesomeIcon icon={faEye} /> View
+                  </button>
+                  <button className="au-edit-btn" title="Edit" onClick={() => setEditUser(user)}>
+                    <FontAwesomeIcon icon={faPen} /> Edit
+                  </button>
                   <button
                     className={`au-suspend-btn ${suspended ? "is-activate" : ""}`}
                     disabled={isLoading}
+                    title={suspended ? "Activate" : "Suspend"}
                     onClick={() => setSuspendModal(user)}>
-                    {isLoading ? <span className="au-btn-spin" /> : suspended ? "Activate" : "Suspend"}
+                    {isLoading
+                      ? <span className="au-btn-spin" />
+                      : <><FontAwesomeIcon icon={suspended ? faCircleCheck : faBan} /> {suspended ? "Activate" : "Suspend"}</>
+                    }
                   </button>
                 </div>
               </div>
@@ -525,22 +556,25 @@ export default function AllUsers() {
 
         /* ════ LIST VIEW ════ */
         <div className={`au-list-wrap ${animated ? "is-animated" : ""}`}>
+
+          {/* Header row */}
           <div className="au-list-head">
-            <span style={{ width: 48, flexShrink: 0 }} />
-            <span className="au-list-hcol au-list-hcol--grow">Name / Username</span>
-            <span className="au-list-hcol au-list-hcol--hide-sm">UID</span>
-            <span className="au-list-hcol au-list-hcol--hide-md">Coins</span>
-            <span className="au-list-hcol au-list-hcol--hide-md">Joined</span>
+            <span />
+            <span className="au-list-hcol">Name / Username</span>
+            <span className="au-list-hcol">UID</span>
+            <span className="au-list-hcol">Coins</span>
+            <span className="au-list-hcol">Joined</span>
             <span className="au-list-hcol">Status</span>
             <span className="au-list-hcol au-list-hcol--right">Actions</span>
           </div>
 
-          {pageItems.map((user, i) => {
+          {users.map((user, i) => {
             const clr       = getAvatarColor(user.username);
             const isLoading = actionLoading === user.objectId;
             const suspended = user.status === "suspended";
             return (
-              <div key={user.objectId} className={`au-list-row ${suspended ? "au-list-row--suspended" : ""}`}
+              <div key={user.objectId}
+                className={`au-list-row ${suspended ? "au-list-row--suspended" : ""}`}
                 style={{ animationDelay: `${i * 28}ms` }}>
 
                 {/* Avatar */}
@@ -553,8 +587,8 @@ export default function AllUsers() {
                   }
                 </div>
 
-                {/* Name */}
-                <div className="au-list-cell au-list-cell--grow">
+                {/* Name + username */}
+                <div className="au-list-name-cell">
                   <span className="au-list-name">{user.name}</span>
                   <span className="au-list-uname au-copyable"
                     onClick={() => copyToClipboard(user.username, showToast)}
@@ -564,7 +598,7 @@ export default function AllUsers() {
                 </div>
 
                 {/* UID */}
-                <div className="au-list-cell au-list-cell--hide-sm">
+                <div className="au-list-uid-cell">
                   <span className="au-list-uid au-copyable"
                     onClick={() => copyToClipboard(user.uid, showToast)}
                     title="Click to copy UID">
@@ -573,33 +607,44 @@ export default function AllUsers() {
                 </div>
 
                 {/* Coins */}
-                <div className="au-list-cell au-list-cell--hide-md">
+                <div className="au-list-coin-cell">
                   <span className="au-list-coin">{user.coin.toLocaleString()}</span>
                 </div>
 
                 {/* Joined */}
-                <div className="au-list-cell au-list-cell--hide-md">
+                <div className="au-list-time-cell">
                   <span className="au-list-time">{timeAgo(user.createdAt)}</span>
                 </div>
 
                 {/* Status */}
-                <div className="au-list-cell">
+                <div className="au-list-status-cell">
                   <span className={`au-status-badge ${suspended ? "is-suspended" : "is-active"}`}>
                     {suspended ? "Suspended" : "Active"}
                   </span>
                 </div>
 
                 {/* Actions */}
-                <div className="au-list-cell au-list-cell--right au-list-actions">
-                  <button className="au-view-btn au-view-btn--sm" onClick={() => setViewUser(user)}>View</button>
-                  <button className="au-edit-btn au-edit-btn--sm" onClick={() => setEditUser(user)}>Edit</button>
+                <div className="au-list-actions-cell">
+                  <button className="au-icon-btn au-icon-btn--view" title="View"
+                    onClick={() => setViewUser(user)}>
+                    <FontAwesomeIcon icon={faEye} />
+                  </button>
+                  <button className="au-icon-btn au-icon-btn--edit" title="Edit"
+                    onClick={() => setEditUser(user)}>
+                    <FontAwesomeIcon icon={faPen} />
+                  </button>
                   <button
-                    className={`au-suspend-btn au-suspend-btn--sm ${suspended ? "is-activate" : ""}`}
+                    className={`au-icon-btn ${suspended ? "au-icon-btn--activate" : "au-icon-btn--suspend"}`}
+                    title={suspended ? "Activate" : "Suspend"}
                     disabled={isLoading}
                     onClick={() => setSuspendModal(user)}>
-                    {isLoading ? <span className="au-btn-spin" /> : suspended ? "Activate" : "Suspend"}
+                    {isLoading
+                      ? <span className="au-btn-spin" />
+                      : <FontAwesomeIcon icon={suspended ? faCircleCheck : faBan} />
+                    }
                   </button>
                 </div>
+
               </div>
             );
           })}
@@ -610,9 +655,9 @@ export default function AllUsers() {
       {totalPages > 1 && (
         <div className="au-pagination">
           <button className="au-page-btn au-page-nav"
-            disabled={page === 0} onClick={() => changePage(0)}>«</button>
+            disabled={page === 0 || loading} onClick={() => changePage(0)}>«</button>
           <button className="au-page-btn au-page-nav"
-            disabled={page === 0} onClick={() => changePage(page - 1)}>‹ Prev</button>
+            disabled={page === 0 || loading} onClick={() => changePage(page - 1)}>‹ Prev</button>
 
           {pageRange[0] > 0 && (
             <><button className="au-page-btn" onClick={() => changePage(0)}>1</button>
@@ -629,9 +674,9 @@ export default function AllUsers() {
           )}
 
           <button className="au-page-btn au-page-nav"
-            disabled={page === totalPages - 1} onClick={() => changePage(page + 1)}>Next ›</button>
+            disabled={page === totalPages - 1 || loading} onClick={() => changePage(page + 1)}>Next ›</button>
           <button className="au-page-btn au-page-nav"
-            disabled={page === totalPages - 1} onClick={() => changePage(totalPages - 1)}>»</button>
+            disabled={page === totalPages - 1 || loading} onClick={() => changePage(totalPages - 1)}>»</button>
           <span className="au-page-info">Page {page + 1} / {totalPages}</span>
         </div>
       )}
