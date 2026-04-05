@@ -61,9 +61,13 @@ function deviceIcon(type) {
 /* ─── Status badge style ─── */
 function statusStyle(status) {
   const s = (status || "").toLowerCase();
-  if (s === "success" || s === "ok") return { bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.35)", text: "#34d399", label: "✓ Success" };
-  if (s === "failed"  || s === "fail") return { bg: "rgba(248,113,113,0.12)", border: "rgba(248,113,113,0.35)", text: "#f87171", label: "✕ Failed" };
-  return { bg: "rgba(129,140,248,0.12)", border: "rgba(129,140,248,0.35)", text: "#818cf8", label: status || "Unknown" };
+  if (s === "success" || s === "login" || s === "ok")
+    return { bg: "rgba(52,211,153,0.12)",  border: "rgba(52,211,153,0.35)",  text: "#34d399", label: "✓ Login"  };
+  if (s === "failed"  || s === "fail")
+    return { bg: "rgba(248,113,113,0.12)", border: "rgba(248,113,113,0.35)", text: "#f87171", label: "✕ Failed" };
+  if (s === "logout")
+    return { bg: "rgba(251,191,36,0.12)",  border: "rgba(251,191,36,0.35)",  text: "#fbbf24", label: "🚪 Logout" };
+  return   { bg: "rgba(129,140,248,0.12)", border: "rgba(129,140,248,0.35)", text: "#818cf8", label: status || "Unknown" };
 }
 
 /* ─── Gender style ─── */
@@ -94,13 +98,37 @@ function mapRecord(obj) {
     deviceType:    obj.get("deviceType")     || "—",
     os:            obj.get("os")             || obj.get("platform")    || "—",
     browser:       obj.get("browser")        || "—",
+    screen:        obj.get("screen")         || "—",
+    language:      obj.get("language")       || "—",
+    timezone:      obj.get("timezone")       || "—",
+    userAgent:     obj.get("userAgent")      || "—",
     ipAddress:     obj.get("ipAddress")      || obj.get("ip")          || "—",
     country:       obj.get("country")        || "—",
     city:          obj.get("city")           || "—",
     region:        obj.get("region")         || "—",
+    fullAddress:   obj.get("fullAddress")    || "—",
     latitude:      obj.get("latitude")       || obj.get("lat")         || null,
     longitude:     obj.get("longitude")      || obj.get("lng")         || null,
-    status:        obj.get("status")         || "success",
+    accuracy:      obj.get("accuracy")       || null,
+    locationSource:obj.get("locationSource") || "—",
+    /* eventType is the primary field for new records.
+       Old records only have status:"success"/"failed" → map them to login/failed */
+    eventType: (() => {
+      const et = obj.get("eventType");
+      if (et) return et; // new record — use eventType directly
+      const st = obj.get("status") || "";
+      if (st === "success") return "login";   // old record
+      if (st === "failed")  return "failed";  // old record
+      if (st === "logout")  return "logout";  // old record
+      return "login";
+    })(),
+    status: (() => {
+      const et = obj.get("eventType");
+      if (et) return et; // use eventType as status for badge
+      const st = obj.get("status") || "";
+      if (st === "success") return "login";
+      return st || "login";
+    })(),
     loginAt:       loginAt ? new Date(loginAt) : null,
     createdAt:     obj.createdAt,
   };
@@ -115,23 +143,46 @@ function DetailModal({ record, onClose, showToast }) {
   const gs = genderStyle(record.adminGender);
 
   const fields = [
-    { label: "Admin ID",   value: record.adminId,       copy: true,  mono: true  },
-    { label: "Name",       value: record.adminName                               },
-    { label: "Username",   value: `@${record.adminUsername}`                     },
-    { label: "Gender",     value: `${gs.icon} ${record.adminGender}`,  color: gs.color },
-    { label: "Device",     value: `${deviceIcon(record.deviceType)} ${record.device}` },
-    { label: "Device Type",value: record.deviceType                              },
-    { label: "OS",         value: record.os                                      },
-    { label: "Browser",    value: record.browser                                 },
-    { label: "IP Address", value: record.ipAddress,      copy: true,  mono: true },
-    { label: "Country",    value: record.country                                 },
-    { label: "City",       value: record.city                                    },
-    { label: "Region",     value: record.region                                  },
-    { label: "Coordinates",value: record.latitude && record.longitude ? `${record.latitude}, ${record.longitude}` : "—", mono: true },
-    { label: "Login Time", value: fmtDate(record.loginAt),             mono: true },
-    { label: "Status",     value: ss.label,              color: ss.text           },
-    { label: "Record ID",  value: record.id,             copy: true,  mono: true  },
+    { label: "Admin ID",        value: record.adminId,       copy: true,  mono: true  },
+    { label: "Name",            value: record.adminName                               },
+    { label: "Username",        value: `@${record.adminUsername}`                     },
+    { label: "Gender",          value: `${gs.icon} ${record.adminGender}`,  color: gs.color },
+    { label: "Event",           value: record.eventType === "login"  ? "✓ Logged In"  :
+                                       record.eventType === "logout" ? "🚪 Logged Out" :
+                                       record.eventType === "failed" ? "✕ Failed Login" : record.eventType,
+                                color: record.eventType === "login"  ? "#34d399" :
+                                       record.eventType === "logout" ? "#fbbf24" : "#f87171" },
+    { label: "Device",          value: `${deviceIcon(record.deviceType)} ${record.device}` },
+    { label: "Device Type",     value: record.deviceType                              },
+    { label: "OS",              value: record.os                                      },
+    { label: "Browser",         value: record.browser                                 },
+    { label: "Screen",          value: record.screen,                    mono: true   },
+    { label: "Language",        value: record.language                                },
+    { label: "Timezone",        value: record.timezone                                },
+    { label: "IP Address",      value: record.ipAddress,     copy: true,  mono: true  },
+    { label: "Country",         value: record.country                                 },
+    { label: "City",            value: record.city                                    },
+    { label: "Region",          value: record.region                                  },
+    { label: "Full Address",    value: record.fullAddress                             },
+    { label: "Coordinates",     value: record.latitude && record.longitude ? `${record.latitude}, ${record.longitude}` : "—", mono: true },
+    { label: "Accuracy",        value: record.accuracy ? `±${record.accuracy}m (GPS)` : "—", mono: true },
+    { label: "Location Source", value: record.locationSource === "gps" ? "📡 GPS (Exact)" : record.locationSource === "ip" ? "🌐 IP Address (Approx)" : "—" },
+    { label: "Event Time",      value: fmtDate(record.loginAt),          mono: true   },
+    { label: "Status",          value: ss.label,             color: ss.text           },
+    { label: "Record ID",       value: record.id,            copy: true,  mono: true  },
   ];
+
+  /* ── Build map URLs ── */
+  const hasCoords  = record.latitude && record.longitude;
+  const mapQuery   = hasCoords
+    ? `${record.latitude},${record.longitude}`
+    : `${record.city || ""} ${record.country || ""}`.trim();
+  const gmapsUrl   = `https://www.google.com/maps?q=${mapQuery}`;
+  const embedUrl   = hasCoords
+    ? `https://maps.google.com/maps?q=${record.latitude},${record.longitude}&z=13&output=embed`
+    : record.city && record.country
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(record.city + ", " + record.country)}&z=10&output=embed`
+    : null;
 
   return (
     <div className="alh-overlay" onClick={onClose}>
@@ -182,17 +233,44 @@ function DetailModal({ record, onClose, showToast }) {
           ))}
         </div>
 
-        {/* Map link if coordinates exist */}
-        {record.latitude && record.longitude && (
-          <a
-            className="alh-map-link"
-            href={`https://www.google.com/maps?q=${record.latitude},${record.longitude}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            📍 Open in Google Maps
-          </a>
+        {/* ── Embedded Map ── */}
+        {embedUrl && (
+          <div className="alh-map-wrap">
+            <div className="alh-map-header">
+              <span className="alh-map-label">📍 Login Location</span>
+              {hasCoords && (
+                <span className="alh-map-coords">{record.latitude?.toFixed(4)}, {record.longitude?.toFixed(4)}</span>
+              )}
+            </div>
+            <div className="alh-map-container">
+              <iframe
+                title="Login Location Map"
+                src={embedUrl}
+                className="alh-map-iframe"
+                allowFullScreen=""
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+            <a
+              className="alh-map-open-link"
+              href={gmapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              ↗ Open in Google Maps
+            </a>
+          </div>
         )}
+
+        {/* No location data message */}
+        {!embedUrl && (
+          <div className="alh-map-empty">
+            <span>🌐</span>
+            <p>No location data available for this login</p>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -245,11 +323,21 @@ export default function AdminLoginHistory() {
     setLoading(true);
     setAnimated(false);
     try {
-      const q = new Parse.Query(CLASS_NAME);
+      let q = new Parse.Query(CLASS_NAME);
 
-      /* status filter */
-      if (status === "success") q.equalTo("status", "success");
-      if (status === "failed")  q.equalTo("status", "failed");
+      /* status filter — queries eventType for new records */
+      if (status === "login") {
+        /* new records have eventType:"login", old records have status:"success" */
+        const qET = new Parse.Query(CLASS_NAME); qET.equalTo("eventType", "login");
+        const qST = new Parse.Query(CLASS_NAME); qST.equalTo("status", "success");
+        q = Parse.Query.or(qET, qST);
+      }
+      if (status === "logout") q.equalTo("eventType", "logout");
+      if (status === "failed") {
+        const qET = new Parse.Query(CLASS_NAME); qET.equalTo("eventType", "failed");
+        const qST = new Parse.Query(CLASS_NAME); qST.equalTo("status", "failed");
+        q = Parse.Query.or(qET, qST);
+      }
 
       /* search — try multiple fields */
       if (srch.trim()) {
@@ -261,8 +349,9 @@ export default function AdminLoginHistory() {
         const qI  = new Parse.Query(Cls); qI.contains("ipAddress",     s);
         const qD  = new Parse.Query(Cls); qD.contains("device",        s);
         let combined = Parse.Query.or(qN, qU, qC, qI, qD);
-        if (status === "success") combined.equalTo("status", "success");
-        if (status === "failed")  combined.equalTo("status", "failed");
+        if (status === "login")  combined.equalTo("eventType", "login");
+        if (status === "logout") combined.equalTo("eventType", "logout");
+        if (status === "failed") combined.equalTo("eventType", "failed");
         combined.limit(PAGE_SIZE);
         combined.skip(pageNum * PAGE_SIZE);
         if (sort === "newest") combined.descending("createdAt");
@@ -295,19 +384,43 @@ export default function AdminLoginHistory() {
     try {
       const Cls = Parse.Object.extend(CLASS_NAME);
 
-      /* filtered total */
-      const qF = new Parse.Query(Cls);
-      if (status === "success") qF.equalTo("status", "success");
-      if (status === "failed")  qF.equalTo("status", "failed");
+      /* ── filtered total ── */
+      let qF;
+      if (status === "login") {
+        // new records: eventType="login"  old records: status="success"
+        const a = new Parse.Query(Cls); a.equalTo("eventType", "login");
+        const b = new Parse.Query(Cls); b.equalTo("status", "success");
+        qF = Parse.Query.or(a, b);
+      } else if (status === "logout") {
+        qF = new Parse.Query(Cls); qF.equalTo("eventType", "logout");
+      } else if (status === "failed") {
+        // new records: eventType="failed"  old records: status="failed"
+        const a = new Parse.Query(Cls); a.equalTo("eventType", "failed");
+        const b = new Parse.Query(Cls); b.equalTo("status", "failed");
+        qF = Parse.Query.or(a, b);
+      } else {
+        qF = new Parse.Query(Cls); // all records
+      }
       const total = await qF.count({ useMasterKey: true });
       setTotalCount(total);
 
-      /* success + failed stats */
-      const qS = new Parse.Query(Cls); qS.equalTo("status", "success");
-      const qX = new Parse.Query(Cls); qX.equalTo("status", "failed");
+      /* ── stat card counts ── */
+      // Login: eventType="login" OR old status="success"
+      const qLA = new Parse.Query(Cls); qLA.equalTo("eventType", "login");
+      const qLB = new Parse.Query(Cls); qLB.equalTo("status", "success");
+      const qLogin = Parse.Query.or(qLA, qLB);
+
+      // Logout: eventType="logout"
+      const qLO = new Parse.Query(Cls); qLO.equalTo("eventType", "logout");
+
+      // Failed: eventType="failed" OR old status="failed"
+      const qFA = new Parse.Query(Cls); qFA.equalTo("eventType", "failed");
+      const qFB = new Parse.Query(Cls); qFB.equalTo("status", "failed");
+      const qFailed = Parse.Query.or(qFA, qFB);
+
       const [sc, fc] = await Promise.all([
-        qS.count({ useMasterKey: true }),
-        qX.count({ useMasterKey: true }),
+        qLogin.count({ useMasterKey: true }),
+        qFailed.count({ useMasterKey: true }),
       ]);
       setSuccessCount(sc);
       setFailedCount(fc);
@@ -392,10 +505,10 @@ export default function AdminLoginHistory() {
       {/* ══════════ STAT CARDS ══════════ */}
       <div className="alh-stats">
         {[
-          { label: "Total Logins", val: countLoading ? "…" : (successCount + failedCount).toLocaleString(), color: "#5ba8f5", icon: "◉" },
-          { label: "Successful",   val: countLoading ? "…" : successCount.toLocaleString(), color: "#34d399", icon: "✓" },
+          { label: "Total Events", val: countLoading ? "…" : (successCount + failedCount).toLocaleString(), color: "#5ba8f5", icon: "◉" },
+          { label: "Logins",       val: countLoading ? "…" : successCount.toLocaleString(), color: "#34d399", icon: "✓" },
+          { label: "Logouts",      val: countLoading ? "…" : totalCount.toLocaleString(),   color: "#fbbf24", icon: "🚪" },
           { label: "Failed",       val: countLoading ? "…" : failedCount.toLocaleString(),  color: "#f87171", icon: "✕" },
-          { label: "Showing",      val: countLoading ? "…" : totalCount.toLocaleString(),    color: "#818cf8", icon: "◈" },
         ].map((s, i) => (
           <div key={i} className="alh-stat-card" style={{ animationDelay: `${i * 60}ms` }}>
             <div className="alh-stat-icon" style={{ color: s.color, background: `${s.color}18` }}>{s.icon}</div>
@@ -414,7 +527,8 @@ export default function AdminLoginHistory() {
         <div className="alh-status-pills">
           {[
             { key: "all",     label: "All",     dot: "#818cf8" },
-            { key: "success", label: "Success", dot: "#34d399" },
+            { key: "login",   label: "Login",   dot: "#34d399" },
+            { key: "logout",  label: "Logout",  dot: "#fbbf24" },
             { key: "failed",  label: "Failed",  dot: "#f87171" },
           ].map(p => (
             <button key={p.key}
@@ -475,7 +589,7 @@ export default function AdminLoginHistory() {
         /* ════ CARD VIEW ════ */
         <div className={`alh-cards ${animated ? "in" : ""}`}>
           {records.map((rec, i) => {
-            const ss = statusStyle(rec.status);
+            const ss = statusStyle(rec.eventType || rec.status);
             const gs = genderStyle(rec.adminGender);
             return (
               <div key={rec.id} className="alh-card"
@@ -558,7 +672,7 @@ export default function AdminLoginHistory() {
           </div>
 
           {records.map((rec, i) => {
-            const ss = statusStyle(rec.status);
+            const ss = statusStyle(rec.eventType || rec.status);
             const gs = genderStyle(rec.adminGender);
             return (
               <div key={rec.id} className="alh-row"

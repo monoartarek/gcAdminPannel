@@ -4,6 +4,26 @@ import Parse from "../parseConfig";
 import { saveLoginHistory } from "../utils/saveLoginHistory"; // ← import
 import "./Login.css";
 
+/* ════════════════════════════════════════════════════════
+   LOGOUT HELPER — import and use this anywhere in your app
+   
+   Usage in any component (e.g. Navbar, Sidebar):
+     import { handleLogout } from "./Login";
+     <button onClick={() => handleLogout(navigate)}>Logout</button>
+════════════════════════════════════════════════════════ */
+export async function handleLogout(navigate) {
+  try {
+    const user = Parse.User.current(); // get current user before logout
+    await saveLoginHistory(user, "logout"); // ← save logout event
+    await Parse.User.logOut();
+    navigate("/login");
+  } catch (err) {
+    console.error("Logout error:", err.message);
+    await Parse.User.logOut(); // force logout even if history save fails
+    navigate("/login");
+  }
+}
+
 function Login() {
   const navigate = useNavigate();
 
@@ -20,27 +40,26 @@ function Login() {
 
       /* ── Not an admin: log failed attempt then reject ── */
       if (user.get("isAdmin") !== true && user.get("role") !== "admin") {
-        await saveLoginHistory(user, "failed"); // ← save failed (not admin)
+        await saveLoginHistory(user, "failed"); // ← not admin
         await Parse.User.logOut();
         alert("You are not an admin");
         setLoading(false);
         return;
       }
 
-      /* ── Success: save history then navigate ── */
-      await saveLoginHistory(user, "success"); // ← save success
+      /* ── Success: save login event then navigate ── */
+      await saveLoginHistory(user, "login"); // ← login event
       navigate("/");
 
     } catch (error) {
-      /* ── Wrong credentials: save failed attempt ── */
-      await saveLoginHistory(null, "failed", username); // ← save failed (wrong creds)
+      /* ── Wrong credentials ── */
+      await saveLoginHistory(null, "failed", username); // ← failed event
       alert(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  /* Allow Enter key to submit */
   const handleKeyDown = e => {
     if (e.key === "Enter") handleLogin();
   };

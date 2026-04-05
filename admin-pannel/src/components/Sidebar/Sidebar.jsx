@@ -50,7 +50,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     
     { title: 'Daily Bonus', icon: 'fas fa-gift', path: '/app-admin/daily-bonus' },
-    { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket-gift' },
+    // { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket-gift' },
     { title: 'Messages', icon: 'fas fa-envelope', path: '/messages' },
     { title: 'Posts', icon: 'fas fa-file-alt', path: '/posts' },
     { title: 'Comments', icon: 'fas fa-comments', path: '/comments' },
@@ -117,17 +117,17 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     { title: 'Game History', icon: 'fas fa-gamepad', path: '/games-history' },
     { title: 'Agora Settings', icon: 'fas fa-cogs', path: '/agora-settings' },
-    { title: 'Payments', icon: 'fas fa-hand-holding-usd', path: '/payments' },
+    // { title: 'Payments', icon: 'fas fa-hand-holding-usd', path: '/payments' },
 
-    {
-      title: 'Payouts',
-      icon: 'fas fa-money-bill-wave',
-      sub: [
-        { label: 'All Payouts', path: '/payouts/all' },
-        { label: 'Pending', path: '/payouts/pending' },
-        { label: 'Processing', path: '/payouts/processing' }
-      ]
-    },
+    // {
+    //   title: 'Payouts',
+    //   icon: 'fas fa-money-bill-wave',
+    //   sub: [
+    //     { label: 'All Payouts', path: '/payouts/all' },
+    //     { label: 'Pending', path: '/payouts/pending' },
+    //     { label: 'Processing', path: '/payouts/processing' }
+    //   ]
+    // },
 
     { title: 'Reports', icon: 'fas fa-chart-line', path: '/reports' },
     { title: 'Admin Login History', icon: 'fas fa-history', path: '/adminloginhistory' },

@@ -92,6 +92,7 @@
 .alh-toast--error   .alh-toast-dot { background: var(--alh-red);   }
 .alh-toast--info    .alh-toast-dot { background: var(--alh-violet);}
 .alh-toast--copy    .alh-toast-dot { background: var(--alh-cyan);  }
+.alh-toast--logout  .alh-toast-dot { background: var(--alh-amber); }
 
 /* ════════════════════════════════════════════════════════════
    OVERLAY + DETAIL MODAL
@@ -174,19 +175,74 @@
 .copyable:hover .alh-copy-icon,
 .alh-detail-field-val.copyable:hover .alh-copy-icon { opacity: 1; color: var(--alh-cyan); }
 
-.alh-map-link {
-  display: flex; align-items: center; gap: 6px;
-  margin: 12px 22px 18px;
-  padding: 10px 14px;
-  border-radius: var(--alh-rs);
-  border: 1px solid rgba(34,211,238,0.25);
-  background: rgba(34,211,238,0.06);
+.alh-map-wrap {
+  margin: 4px 0 0;
+  border-top: 1px solid var(--alh-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.alh-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 22px 10px;
+  gap: 8px;
+}
+.alh-map-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--alh-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.alh-map-coords {
+  font-family: var(--alh-fm);
+  font-size: 10px;
+  color: var(--alh-muted);
+}
+.alh-map-container {
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+.alh-map-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  filter: invert(0.9) hue-rotate(180deg) saturate(0.7) brightness(0.85);
+  /* dark mode map effect */
+}
+.alh-map-open-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 11px;
+  border-top: 1px solid var(--alh-border);
   color: var(--alh-cyan);
-  font-family: var(--alh-fb); font-size: 12px; font-weight: 500;
+  font-family: var(--alh-fb);
+  font-size: 12px;
+  font-weight: 500;
   text-decoration: none;
   transition: background 0.15s;
+  border-radius: 0 0 var(--alh-r) var(--alh-r);
 }
-.alh-map-link:hover { background: rgba(34,211,238,0.12); }
+.alh-map-open-link:hover { background: rgba(34,211,238,0.06); }
+
+.alh-map-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px 18px;
+  font-size: 12px;
+  color: var(--alh-muted);
+  border-top: 1px solid var(--alh-border);
+}
+.alh-map-empty span { font-size: 16px; opacity: 0.5; }
 
 /* ════════════════════════════════════════════════════════════
    PAGE HEADER
