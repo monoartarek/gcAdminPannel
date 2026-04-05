@@ -332,7 +332,7 @@ export default function Posts() {
             <div className="ps-logo">{Ic.posts}</div>
             <div>
               <div className="ps-page-title">Posts</div>
-              <div className="ps-page-sub">Manage &amp; moderate all content posts</div>
+              <div className="ps-page-sub">Manage Contents of posts</div>
             </div>
           </div>
           <div className="ps-header-right">

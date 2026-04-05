@@ -130,6 +130,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     },
 
     { title: 'Reports', icon: 'fas fa-chart-line', path: '/reports' },
+    { title: 'Admin Login History', icon: 'fas fa-history', path: '/adminloginhistory' },
 
     // {
     //   title: 'Streamings',

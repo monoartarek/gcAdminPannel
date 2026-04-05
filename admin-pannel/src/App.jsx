@@ -43,6 +43,7 @@ import ReportsPage from './Pages/Reports';
 // import Streamings from './Pages/Streamings';
 import AllAgency from './Pages/AllAgency';
 import AllMessagesPage from './Pages/AllMessages';
+import AdminLoginHistoryPage from './Pages/AdminLoginHistory';
 
 
 import Login from './Pages/Login';
@@ -169,6 +170,8 @@ function App() {
                     <Route path ="/all-agencies" element={<AllAgency />} />
 
                     <Route path ="/messages" element={<AllMessagesPage />} />
+
+                    <Route path ="/adminloginhistory" element={<AdminLoginHistoryPage />} />
 
                     
                   </Routes>

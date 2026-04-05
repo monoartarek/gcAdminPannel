@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Parse from "../parseConfig";
+import { saveLoginHistory } from "../utils/saveLoginHistory"; // ← import
 import "./Login.css";
 
 function Login() {
@@ -8,22 +9,40 @@ function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading,  setLoading]  = useState(false);
 
   const handleLogin = async () => {
+    if (!username || !password) return;
+    setLoading(true);
+
     try {
       const user = await Parse.User.logIn(username, password);
 
-      if (user.get("role") !== "admin") {
-        alert("You are not an admin");
+      /* ── Not an admin: log failed attempt then reject ── */
+      if (user.get("isAdmin") !== true && user.get("role") !== "admin") {
+        await saveLoginHistory(user, "failed"); // ← save failed (not admin)
         await Parse.User.logOut();
+        alert("You are not an admin");
+        setLoading(false);
         return;
       }
 
-      alert("Login Successful!");
-      navigate("/"); // Redirect to dashboard
+      /* ── Success: save history then navigate ── */
+      await saveLoginHistory(user, "success"); // ← save success
+      navigate("/");
+
     } catch (error) {
+      /* ── Wrong credentials: save failed attempt ── */
+      await saveLoginHistory(null, "failed", username); // ← save failed (wrong creds)
       alert(error.message);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  /* Allow Enter key to submit */
+  const handleKeyDown = e => {
+    if (e.key === "Enter") handleLogin();
   };
 
   return (
@@ -35,17 +54,23 @@ function Login() {
           type="text"
           placeholder="Username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={e => setUsername(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={loading}
         />
 
         <input
           type="password"
           placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={loading}
         />
 
-        <button onClick={handleLogin}>Login</button>
+        <button onClick={handleLogin} disabled={loading}>
+          {loading ? "Logging in…" : "Login"}
+        </button>
       </div>
     </div>
   );
