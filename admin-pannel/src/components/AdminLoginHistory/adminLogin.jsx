@@ -379,7 +379,7 @@ export default function AdminLoginHistory() {
   /* ════════════════════════════════════════════════════════
      FETCH COUNTS — lightweight integers only
   ════════════════════════════════════════════════════════ */
-  const fetchCounts = useCallback(async (status, srch) => {
+  const fetchCounts = useCallback(async (status) => {
     setCountLoading(true);
     try {
       const Cls = Parse.Object.extend(CLASS_NAME);
@@ -507,7 +507,7 @@ export default function AdminLoginHistory() {
         {[
           { label: "Total Events", val: countLoading ? "…" : (successCount + failedCount).toLocaleString(), color: "#5ba8f5", icon: "◉" },
           { label: "Logins",       val: countLoading ? "…" : successCount.toLocaleString(), color: "#34d399", icon: "✓" },
-          { label: "Logouts",      val: countLoading ? "…" : totalCount.toLocaleString(),   color: "#fbbf24", icon: "🚪" },
+          // { label: "Logouts",      val: countLoading ? "…" : totalCount.toLocaleString(),   color: "#fbbf24", icon: "🚪" },
           { label: "Failed",       val: countLoading ? "…" : failedCount.toLocaleString(),  color: "#f87171", icon: "✕" },
         ].map((s, i) => (
           <div key={i} className="alh-stat-card" style={{ animationDelay: `${i * 60}ms` }}>
@@ -528,7 +528,7 @@ export default function AdminLoginHistory() {
           {[
             { key: "all",     label: "All",     dot: "#818cf8" },
             { key: "login",   label: "Login",   dot: "#34d399" },
-            { key: "logout",  label: "Logout",  dot: "#fbbf24" },
+            // { key: "logout",  label: "Logout",  dot: "#fbbf24" },
             { key: "failed",  label: "Failed",  dot: "#f87171" },
           ].map(p => (
             <button key={p.key}
