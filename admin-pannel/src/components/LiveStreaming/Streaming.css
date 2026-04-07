@@ -344,4 +344,5 @@
 @media (max-width: 380px) {
   .ls-grid      { grid-template-columns: 1fr; }
   .ls-cut-nav   { display: none; }
+  
 }
