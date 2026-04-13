@@ -1,6 +1,7 @@
 /* ════════════════════════════════════════════════════════════
    MakeAppAdmin.css  —  Compact dark admin management UI
    Fonts: Outfit (headings) · DM Sans (body) · DM Mono (ids)
+   Updated: grid columns include Gender column
 ════════════════════════════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap');
 
@@ -66,7 +67,7 @@
 .adm-modal {
   background: var(--bg3); border: 1px solid var(--border2);
   border-radius: var(--r); padding: 28px 24px;
-  max-width: 340px; width: 100%;
+  max-width: 360px; width: 100%;
   display: flex; flex-direction: column; align-items: center; gap: 12px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: fadeUp 0.2s ease;
 }
@@ -252,7 +253,8 @@
 .adm-card-user { font-family: var(--fm); font-size: 11px; color: var(--muted); text-align: center; }
 
 /* ════════════════════════════════════════════════════════════
-   LIST VIEW — CSS Grid, proper horizontal rows
+   LIST VIEW
+   Grid: avatar | name+user | uid | gender | role | action
 ════════════════════════════════════════════════════════════ */
 .adm-list {
   background: var(--bg2); border: 1px solid var(--border);
@@ -261,16 +263,15 @@
 }
 .adm-list.in { opacity: 1; }
 
-/* grid columns: avatar | name+user | uid | role badge | action btn */
 .adm-list-head,
 .adm-row {
   display: grid;
-  grid-template-columns: 52px 1fr 110px 110px 140px;
+  /* avatar | name | uid | gender | role | action */
+  grid-template-columns: 52px 1fr 110px 90px 130px 150px;
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
 }
-
 .adm-list-head {
   background: var(--bg3);
   border-bottom: 1px solid var(--border2);
@@ -279,7 +280,9 @@
   font-size: 9px; font-weight: 700;
   letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
 }
-.adm-lh--right { text-align: right; }
+.adm-lh--right  { text-align: right; }
+.adm-lh--uid    { /* uid + gender columns */ }
+.adm-lh--grow   { /* name column */ }
 
 .adm-row {
   border-bottom: 1px solid var(--border);
@@ -290,11 +293,7 @@
 }
 .adm-row:last-child { border-bottom: none; }
 .adm-row:hover { background: var(--bg3); }
-
-/* admin row highlight */
-.adm-row--admin {
-  border-left: 2px solid rgba(245,166,35,0.45);
-}
+.adm-row--admin { border-left: 2px solid rgba(245,166,35,0.45); }
 .adm-row--admin:hover { background: rgba(245,166,35,0.04); }
 
 /* ── Avatar cell ── */
@@ -304,7 +303,8 @@
 }
 .adm-av-img {
   width: 36px; height: 36px; border-radius: 50%;
-  object-fit: cover; display: block; border: 2px solid var(--border2); flex-shrink: 0;
+  object-fit: cover; display: block;
+  border: 2px solid var(--border2); flex-shrink: 0;
 }
 .adm-av-init {
   width: 36px; height: 36px;
@@ -320,7 +320,7 @@
 
 /* ── Name cell ── */
 .adm-cell { overflow: hidden; display: flex; align-items: center; }
-.adm-cell--grow { flex-direction: column; align-items: flex-start; gap: 2px; }
+.adm-cell--grow  { flex-direction: column; align-items: flex-start; gap: 2px; }
 .adm-cell--right { justify-content: flex-end; }
 .adm-row-name {
   font-family: var(--fd); font-size: 13px; font-weight: 600; color: var(--text);
@@ -331,14 +331,16 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 
-/* ── UID chip in list row ── */
+/* ── UID / Gender cell ── */
 .adm-cell--uid { overflow: hidden; }
-.adm-row-uid--chip {
+.adm-row-uid {
   font-family: var(--fm); font-size: 11px; color: var(--muted);
-  background: var(--bg4); border: 1px solid var(--border);
-  border-radius: 5px; padding: 3px 8px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   display: block; max-width: 100%;
+}
+.adm-row-uid--chip {
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 5px; padding: 3px 8px;
   transition: border-color 0.15s, color 0.15s;
 }
 .adm-row-uid--chip.copyable:hover {
@@ -365,7 +367,7 @@
 }
 .adm-page:hover:not(:disabled) { background: var(--bg3); border-color: var(--border2); color: var(--text); }
 .adm-page:disabled { opacity: 0.3; cursor: not-allowed; }
-.adm-page--on { background: var(--amber); border-color: var(--amber); color: #080d16; font-weight: 700; box-shadow: 0 0 12px rgba(245,166,35,0.3); }
+.adm-page--on  { background: var(--amber); border-color: var(--amber); color: #080d16; font-weight: 700; box-shadow: 0 0 12px rgba(245,166,35,0.3); }
 .adm-page--nav { font-size: 14px; }
 .adm-dots { color: var(--muted); font-size: 13px; padding: 0 3px; line-height: 34px; }
 
@@ -373,25 +375,25 @@
 .adm-fs-toggle { gap: 2px; }
 .adm-fs-btn { font-family: var(--fd); font-size: 11px !important; font-weight: 700; letter-spacing: 0.3px; }
 
-.adm-fs--sm { --fs-base: 11px; --fs-name: 12px; --fs-title: 20px; --fs-pill-v: 14px; --fs-sub: 10px; --fs-badge: 10px; }
-.adm-fs--md { --fs-base: 13px; --fs-name: 13px; --fs-title: 24px; --fs-pill-v: 16px; --fs-sub: 11px; --fs-badge: 11px; }
-.adm-fs--lg { --fs-base: 15px; --fs-name: 15px; --fs-title: 28px; --fs-pill-v: 19px; --fs-sub: 13px; --fs-badge: 13px; }
+.adm-fs--sm { --fs-base:11px; --fs-name:12px; --fs-title:20px; --fs-pill-v:14px; --fs-sub:10px; --fs-badge:10px; }
+.adm-fs--md { --fs-base:13px; --fs-name:13px; --fs-title:24px; --fs-pill-v:16px; --fs-sub:11px; --fs-badge:11px; }
+.adm-fs--lg { --fs-base:15px; --fs-name:15px; --fs-title:28px; --fs-pill-v:19px; --fs-sub:13px; --fs-badge:13px; }
 
-.adm-root         { font-size: var(--fs-base, 13px); }
-.adm-title        { font-size: var(--fs-title,  24px) !important; }
-.adm-sub          { font-size: var(--fs-sub,    11px) !important; }
-.adm-pill-val     { font-size: var(--fs-pill-v, 16px) !important; }
-.adm-pill-label   { font-size: var(--fs-base,   13px) !important; }
-.adm-card-name    { font-size: var(--fs-name,   13px) !important; }
+.adm-root         { font-size: var(--fs-base,  13px); }
+.adm-title        { font-size: var(--fs-title, 24px)  !important; }
+.adm-sub          { font-size: var(--fs-sub,   11px)  !important; }
+.adm-pill-val     { font-size: var(--fs-pill-v,16px)  !important; }
+.adm-pill-label   { font-size: var(--fs-base,  13px)  !important; }
+.adm-card-name    { font-size: var(--fs-name,  13px)  !important; }
 .adm-card-user    { font-size: calc(var(--fs-base, 13px) - 2px) !important; }
-.adm-row-name     { font-size: var(--fs-name,   13px) !important; }
+.adm-row-name     { font-size: var(--fs-name,  13px)  !important; }
 .adm-row-user     { font-size: calc(var(--fs-base, 13px) - 2px) !important; }
-.adm-badge        { font-size: var(--fs-badge,  11px) !important; }
-.adm-search       { font-size: var(--fs-base,   13px) !important; }
+.adm-badge        { font-size: var(--fs-badge, 11px)  !important; }
+.adm-search       { font-size: var(--fs-base,  13px)  !important; }
 .adm-count        { font-size: calc(var(--fs-base, 13px) - 2px) !important; }
-.adm-btn          { font-size: var(--fs-badge,  11px) !important; }
+.adm-btn          { font-size: var(--fs-badge, 11px)  !important; }
 .adm-modal-title  { font-size: calc(var(--fs-title, 24px) - 6px) !important; }
-.adm-modal-desc   { font-size: var(--fs-base,   13px) !important; }
+.adm-modal-desc   { font-size: var(--fs-base,  13px)  !important; }
 
 /* ════ KEYFRAMES ════ */
 @keyframes spin    { to { transform: rotate(360deg); } }
@@ -402,26 +404,35 @@
    RESPONSIVE
 ════════════════════════════════════════════════════════════ */
 
-/* ── Tablet (≤ 860px) — hide UID column ── */
+/* Tablet ≤ 1024px — hide Gender */
+@media (max-width: 1024px) {
+  .adm-list-head,
+  .adm-row { grid-template-columns: 52px 1fr 110px 130px 150px; }
+  /* hide gender (4th content col = 5th grid child) */
+  .adm-list-head > *:nth-child(5),
+  .adm-row       > *:nth-child(5) { display: none; }
+}
+
+/* Tablet ≤ 860px — also hide UID */
 @media (max-width: 860px) {
   .adm-root { padding: 16px 14px 40px; gap: 14px; }
   .adm-list-head,
-  .adm-row { grid-template-columns: 52px 1fr 110px 130px; }
-  /* hide uid column (3rd child) */
-  .adm-list-head > *:nth-child(3),
-  .adm-row       > *:nth-child(3) { display: none; }
+  .adm-row { grid-template-columns: 52px 1fr 130px 150px; }
+  /* hide uid (4th grid child) */
+  .adm-list-head > *:nth-child(4),
+  .adm-row       > *:nth-child(4) { display: none; }
   .adm-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 
-/* ── Small tablet (≤ 640px) — also hide role column ── */
+/* Small tablet ≤ 640px — also hide Role badge */
 @media (max-width: 640px) {
   .adm-list-head,
-  .adm-row { grid-template-columns: 52px 1fr 120px; }
-  .adm-list-head > *:nth-child(4),
-  .adm-row       > *:nth-child(4) { display: none; }
+  .adm-row { grid-template-columns: 52px 1fr 150px; }
+  .adm-list-head > *:nth-child(3),
+  .adm-row       > *:nth-child(3) { display: none; }
 }
 
-/* ── Mobile (≤ 540px) — stacked mini-cards ── */
+/* Mobile ≤ 540px — stacked mini-cards */
 @media (max-width: 540px) {
   .adm-root  { padding: 12px 12px 36px; gap: 12px; }
   .adm-title { font-size: 20px; }
@@ -448,9 +459,6 @@
   .adm-av-img, .adm-av-init { width: 36px; height: 36px; font-size: 13px; }
   .adm-cell--grow { flex: 1; min-width: 0; padding: 0 9px; }
   .adm-cell--uid  { display: none; }
-  /* badge inline */
-  .adm-cell:not(.adm-cell--grow):not(.adm-cell--right):not(.adm-cell--uid) { flex: none; }
-  /* action full width at bottom */
   .adm-cell--right {
     width: 100%; flex: none; justify-content: stretch;
     padding: 9px 0 11px; margin-top: 9px;
