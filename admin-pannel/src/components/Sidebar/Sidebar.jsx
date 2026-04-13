@@ -50,7 +50,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     
     { title: 'Daily Bonus', icon: 'fas fa-gift', path: '/app-admin/daily-bonus' },
-    // { title: 'Rocket', icon: 'fas fa-rocket', path: '/rocket-gift' },
+    { title: 'App Settings', icon: 'fas fa-cogs', path: '/app-settings' },
     { title: 'Messages', icon: 'fas fa-envelope', path: '/messages' },
     { title: 'Posts', icon: 'fas fa-file-alt', path: '/posts' },
     { title: 'Comments', icon: 'fas fa-comments', path: '/comments' },
