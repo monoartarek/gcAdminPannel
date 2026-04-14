@@ -47,7 +47,7 @@ function Navbar({ onHamburgerClick }) {
         </button>
 
         <div className="brand-logo">
-          PIKILIVE
+          Priyu Live
         </div>
 
       </div>

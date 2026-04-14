@@ -44,6 +44,7 @@ import ReportsPage from './Pages/Reports';
 import AllAgency from './Pages/AllAgency';
 import AllMessagesPage from './Pages/AllMessages';
 import AdminLoginHistoryPage from './Pages/AdminLoginHistory';
+import BannedDevicePage from './Pages/BannedDevice';
 
 
 import Login from './Pages/Login';
@@ -172,6 +173,8 @@ function App() {
                     <Route path ="/messages" element={<AllMessagesPage />} />
 
                     <Route path ="/adminloginhistory" element={<AdminLoginHistoryPage />} />
+
+                    <Route path ="/banned-devices" element={<BannedDevicePage />} />
 
                     
                   </Routes>
