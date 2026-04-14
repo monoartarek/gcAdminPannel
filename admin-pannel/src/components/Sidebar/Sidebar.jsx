@@ -41,6 +41,14 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'All Agency History', path: '/host/history' }
       ]
     },
+        {
+      title: 'Salary Reports',
+      icon: 'fas fa-file-invoice-dollar',
+      sub: [
+        { label: 'Salary Queries', path: '/salary-queries' },
+        { label: 'Salary Reports', path: '/salary-reports' }
+      ]
+    },
 
     {
       title: 'App Admin',
