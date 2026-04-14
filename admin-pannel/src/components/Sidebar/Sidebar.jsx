@@ -46,7 +46,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       icon: 'fas fa-file-invoice-dollar',
       sub: [
         { label: 'Salary Queries', path: '/salary-queries' },
-        { label: 'Salary Reports', path: '/salary-reports' }
+        { label: 'Full Reports', path: '/full-reports' }
       ]
     },
 
