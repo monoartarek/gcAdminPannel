@@ -1,18 +1,25 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Parse from "../../parseConfig";
 import "./Dashboard.css";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowUp, faArrowDown } from "@fortawesome/free-solid-svg-icons";
+
+/* ════════════════════════════════════════════════════════════
+   Dashboard.jsx — All-in-one
+   Includes all PieChartMF logic inline (no separate file needed)
+   • Stat counts via Promise.all (fast, parallel)
+   • Charts: Gender donut, Age bars, Country bars, Growth polygon
+   • Recently joined: 10 users only
+   • No All Users table, No Top Streamers
+════════════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────────
    CONSTANTS
 ───────────────────────────────────────────────────────── */
 const AGE_GROUPS = [
   { label: "Under 18", min: 0,  max: 17  },
-  { label: "18 - 24",  min: 18, max: 24  },
-  { label: "25 - 34",  min: 25, max: 34  },
-  { label: "35 - 44",  min: 35, max: 44  },
-  { label: "45 - 54",  min: 45, max: 54  },
+  { label: "18 – 24",  min: 18, max: 24  },
+  { label: "25 – 34",  min: 25, max: 34  },
+  { label: "35 – 44",  min: 35, max: 44  },
+  { label: "45 – 54",  min: 45, max: 54  },
   { label: "55+",      min: 55, max: 999 },
 ];
 const AGE_COLORS     = ["#a78bfa","#60a5fa","#34d399","#fbbf24","#f87171","#f472b6"];
@@ -89,14 +96,14 @@ function arcPath(a1, a2, ro, ri) {
 /* ════════════════════════════════════════════════════════════
    GROWTH POLYGON CHART (inlined from PieChartMF)
 ════════════════════════════════════════════════════════════ */
-function GrowthPolygon({ userGrowth, streamGrowth, animated }) {
+function GrowthPolygon({ userGrowth, streamGrowth, coinGrowth, animated }) {
   const [activeMetric, setActiveMetric] = useState("users");
   const [tooltip,      setTooltip]      = useState(null);
 
   const dataMap = {
     users:   { data: userGrowth,   color: "#5b8af5", label: "Users",   key: "count", icon: "◈" },
     streams: { data: streamGrowth, color: "#34d399", label: "Streams", key: "count", icon: "⬡" },
-    // coins:   { data: coinGrowth,   color: "#fbbf24", label: "Coins",   key: "total", icon: "◎" },
+    coins:   { data: coinGrowth,   color: "#fbbf24", label: "Coins",   key: "total", icon: "◎" },
   };
   const active    = dataMap[activeMetric];
   const values    = active.data.map(d => d[active.key] || 0);
@@ -151,10 +158,8 @@ function GrowthPolygon({ userGrowth, streamGrowth, animated }) {
         <div className="pmc-growth-kpi">
           <span className="pmc-growth-kpi-label">vs Last Month</span>
           <span className="pmc-growth-kpi-val" style={{ color: isPos ? "#34d399" : "#f87171" }}>
-                <FontAwesomeIcon icon={isPos ? faArrowUp : faArrowDown} />
-                {" "}
-                {Math.abs(growthPct).toFixed(1)}%
-              </span>
+            {isPos ? "▲" : "▼"} {Math.abs(growthPct).toFixed(1)}%
+          </span>
         </div>
       </div>
 
@@ -232,8 +237,6 @@ function GrowthPolygon({ userGrowth, streamGrowth, animated }) {
   );
 }
 
-
-
 /* ════════════════════════════════════════════════════════════
    STAT CARD (reusable widget)
 ════════════════════════════════════════════════════════════ */
@@ -249,152 +252,6 @@ function StatCard({ icon, label, value, color, loading, sub }) {
         {sub && !loading && <span className="dash-stat-sub">{sub}</span>}
       </div>
       <div className="dash-stat-glow" style={{ background: `${color}30` }} />
-    </div>
-  );
-}
-/* ════════════════════════════════════════════════════════════
-   TOP 10 AGENCY COMPONENT
-   Paste this function into Dashboard.jsx (before AnalyticsSection)
-   Then add <Top10Agency /> inside the Dashboard return JSX
-   Also add the CSS block below into Dashboard.css
-════════════════════════════════════════════════════════════ */
-
-function Top10Agency() {
-  const [agencies, setAgencies] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [animated, setAnimated] = useState(false);
-
-  /* ── earning fields to sum ── */
-  const EARN_FIELDS = [
-    "audio_earning",
-    "livestreaming_earning",
-    "game_gratuities",
-    "party_earnings",
-    "match_earnings",
-    "live_earnings",
-    "p_coin_earnings",
-    "multiboard_earning",
-    "platform_reward",
-  ];
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const AgencyMember = Parse.Object.extend("AgencyMember");
-        const q = new Parse.Query(AgencyMember);
-        q.select(["agent_id", ...EARN_FIELDS]);
-        q.limit(1000); // fetch all to sum client-side (Parse has no sum aggregation without Live Query)
-
-        const results = await q.find({ useMasterKey: true });
-
-        /* group by agent_id and sum earnings */
-        const map = {};
-        results.forEach(r => {
-          const agentId = r.get("agent_id") || "Unknown";
-          if (!map[agentId]) map[agentId] = { agent_id: agentId, total: 0 };
-          EARN_FIELDS.forEach(f => {
-            map[agentId].total += Number(r.get(f) || 0);
-          });
-        });
-
-        /* sort by total descending, take top 10 */
-        const top10 = Object.values(map)
-          .sort((a, b) => b.total - a.total)
-          .slice(0, 10);
-
-        setAgencies(top10);
-      } catch (err) {
-        console.error("Top10Agency fetch error:", err);
-      } finally {
-        setLoading(false);
-        setTimeout(() => setAnimated(true), 80);
-      }
-    })();
-  }, []);
-
-  function fmtEarn(n) {
-    if (!n && n !== 0) return "0";
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
-    if (n >= 1_000)     return (n / 1_000).toFixed(1) + "K";
-    return n.toLocaleString();
-  }
-
-  const maxTotal = agencies.length > 0 ? agencies[0].total : 1;
-
-  const RANK_COLORS = [
-    "#fbbf24", // 1st — gold
-    "#94a3b8", // 2nd — silver
-    "#c2713a", // 3rd — bronze
-    "#818cf8", // 4th+
-    "#818cf8",
-    "#818cf8",
-    "#818cf8",
-    "#818cf8",
-    "#818cf8",
-    "#818cf8",
-  ];
-
-  return (
-    <div className="t10-card">
-      <div className="t10-header">
-        <div className="t10-title-group">
-          <span className="t10-eyebrow">Agency Leaderboard</span>
-          <h2 className="t10-title">Top 10 Agencies</h2>
-          <span className="t10-sub">Ranked by total combined earnings</span>
-        </div>
-        <div className="t10-badge">Top 10</div>
-      </div>
-
-      {loading ? (
-        <div className="t10-loading">
-          <div className="t10-spinner" /><div className="t10-spinner t10-spinner--2" />
-          <p>Loading leaderboard…</p>
-        </div>
-      ) : agencies.length === 0 ? (
-        <div className="t10-empty">No agency data found</div>
-      ) : (
-        <div className={`t10-list ${animated ? "in" : ""}`}>
-          {agencies.map((ag, i) => {
-            const barPct = maxTotal > 0 ? (ag.total / maxTotal) * 100 : 0;
-            const color  = RANK_COLORS[i] || "#818cf8";
-            const isTop3 = i < 3;
-            return (
-              <div key={ag.agent_id}
-                className={`t10-row ${isTop3 ? "t10-row--top3" : ""}`}
-                style={{ animationDelay: `${i * 55}ms` }}>
-
-                {/* Rank */}
-                <div className="t10-rank" style={{ color }}>
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
-                </div>
-
-                {/* Agent ID + bar */}
-                <div className="t10-info">
-                  <div className="t10-agent-id" title={ag.agent_id}>
-                    {ag.agent_id}
-                  </div>
-                  <div className="t10-bar-track">
-                    <div className="t10-bar-fill"
-                      style={{
-                        width: animated ? `${Math.max(barPct, 2)}%` : "0%",
-                        background: color,
-                        boxShadow: isTop3 ? `0 0 10px ${color}66` : "none",
-                        transitionDelay: `${i * 55}ms`,
-                      }} />
-                  </div>
-                </div>
-
-                {/* Earnings */}
-                <div className="t10-earn" style={{ color }}>
-                  {fmtEarn(ag.total)}
-                </div>
-
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -417,21 +274,21 @@ function AnalyticsSection() {
   const [totalUsers,   setTotalUsers]   = useState(0);
   const [userGrowth,   setUserGrowth]   = useState([]);
   const [streamGrowth, setStreamGrowth] = useState([]);
-  // const [coinGrowth,   setCoinGrowth]   = useState([]);
+  const [coinGrowth,   setCoinGrowth]   = useState([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [ugData, sgData] = await Promise.all([
+        const [ugData, sgData, cgData] = await Promise.all([
           fetchChartUsers(),
           fetchStreamers(),
           fetchUserGrowth(),
           fetchStreamGrowth(),
-          // fetchCoinGrowth(),
-        ]).then(r => [r[2], r[3]]);
+          fetchCoinGrowth(),
+        ]).then(r => [r[2], r[3], r[4]]);
         setUserGrowth(ugData   || []);
         setStreamGrowth(sgData || []);
-        // setCoinGrowth(cgData   || []);
+        setCoinGrowth(cgData   || []);
       } catch (err) {
         console.error("Analytics fetch error:", err);
       } finally {
@@ -518,21 +375,21 @@ function AnalyticsSection() {
   }
 
   /* ── Monthly coin growth ──
-       Change "CoinTransaction" to your actual class name
-       Change "amount" to your actual field name           */
-  // async function fetchCoinGrowth() {
-  //   const months = getLast6Months(), results = [];
-  //   for (const { label, start, end } of months) {
-  //     try {
-  //       const q = new Parse.Query("CoinsTransactions");
-  //       q.greaterThanOrEqualTo("createdAt", start); q.lessThan("createdAt", end);
-  //       const batch = await q.find({ useMasterKey: true });
-  //       const total = batch.reduce((sum, obj) => sum + (obj.get("amount") || 0), 0);
-  //       results.push({ label, total });
-  //     } catch { results.push({ label, total: 0 }); }
-  //   }
-  //   return results;
-  // }
+     ⚠️  Change "CoinTransaction" to your actual class name
+     ⚠️  Change "amount" to your actual field name           */
+  async function fetchCoinGrowth() {
+    const months = getLast6Months(), results = [];
+    for (const { label, start, end } of months) {
+      try {
+        const q = new Parse.Query("CoinTransaction");
+        q.greaterThanOrEqualTo("createdAt", start); q.lessThan("createdAt", end);
+        const batch = await q.find({ useMasterKey: true });
+        const total = batch.reduce((sum, obj) => sum + (obj.get("amount") || 0), 0);
+        results.push({ label, total });
+      } catch { results.push({ label, total: 0 }); }
+    }
+    return results;
+  }
 
   /* ── Donut math ── */
   const total         = male + female;
@@ -671,7 +528,7 @@ function AnalyticsSection() {
         </div>
 
         {/* Growth Polygon */}
-        <GrowthPolygon userGrowth={userGrowth} streamGrowth={streamGrowth} animated={animated} />
+        <GrowthPolygon userGrowth={userGrowth} streamGrowth={streamGrowth} coinGrowth={coinGrowth} animated={animated} />
 
       </div>
     </div>
@@ -681,6 +538,290 @@ function AnalyticsSection() {
 /* ════════════════════════════════════════════════════════════
    MAIN DASHBOARD COMPONENT
 ════════════════════════════════════════════════════════════ */
+
+/* ── helpers reused by Top10Agency & RecentUsers ── */
+const EARN_FIELDS_T10 = ["audio_earning","livestreaming_earning","game_gratuities","party_earnings","match_earnings","live_earnings","p_coin_earnings","multiboard_earning","platform_reward"];
+const RANK_COLORS_T10 = ["#fbbf24","#94a3b8","#c2713a","#818cf8","#818cf8","#818cf8","#818cf8","#818cf8","#818cf8","#818cf8"];
+const RANK_MEDALS_T10 = ["🥇","🥈","🥉"];
+function fmtEarn(n){if(!n&&n!==0)return"0";if(n>=1e6)return(n/1e6).toFixed(2)+"M";if(n>=1e3)return(n/1e3).toFixed(1)+"K";return n.toLocaleString();}
+
+/* ── Avatar component ── */
+function UserAv({ u, size=44 }) {
+  const clr = avatarColor(u.username||u.agent_id||u.id||"");
+  const ini = ((u.name||u.agent_id||"?").charAt(0)||"?").toUpperCase();
+  return u.avatar
+    ? <img src={u.avatar} alt={u.name} className="dash-av-img" style={{width:size,height:size}} />
+    : <div className="dash-av-init" style={{width:size,height:size,background:clr,fontSize:size*.36}}>{ini}</div>;
+}
+
+/* ── View toggle ── */
+function ViewToggle({ view, setView }) {
+  return (
+    <div className="dash-view-toggle">
+      <button className={`dash-vbtn${view==="card"?" on":""}`} onClick={()=>setView("card")} title="Card view">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1.5"/><rect x="8" y="0" width="6" height="6" rx="1.5"/><rect x="0" y="8" width="6" height="6" rx="1.5"/><rect x="8" y="8" width="6" height="6" rx="1.5"/></svg>
+      </button>
+      <button className={`dash-vbtn${view==="list"?" on":""}`} onClick={()=>setView("list")} title="List view">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="14" height="2.5" rx="1.25"/><rect x="0" y="5.75" width="14" height="2.5" rx="1.25"/><rect x="0" y="11.5" width="14" height="2.5" rx="1.25"/></svg>
+      </button>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOP 10 AGENCY — resolves real avatar, name, username, uid
+════════════════════════════════════════════════════════════ */
+function Top10Agency() {
+  const [agencies, setAgencies] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [animated, setAnimated] = useState(false);
+  const [view,     setView]     = useState("card");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = new Parse.Query("AgencyMember");
+        q.select(["agent_id",...EARN_FIELDS_T10]);
+        q.limit(1000);
+        const results = await q.find({ useMasterKey:true });
+
+        const map = {};
+        results.forEach(r => {
+          const aid = r.get("agent_id")||"Unknown";
+          if (!map[aid]) map[aid] = { agent_id:aid, total:0 };
+          EARN_FIELDS_T10.forEach(f => { map[aid].total += Number(r.get(f)||0); });
+        });
+        const top10 = Object.values(map).sort((a,b)=>b.total-a.total).slice(0,10);
+
+        /* resolve _User */
+        const ids = top10.map(a=>a.agent_id).filter(Boolean);
+        let uMap = {};
+        if (ids.length) {
+          const uq = new Parse.Query("_User");
+          uq.containedIn("objectId", ids);
+          uq.select("name","username","uid","avatar","country","gender","coins");
+          uq.limit(ids.length);
+          const users = await uq.find({ useMasterKey:true });
+          users.forEach(u => {
+            const av = u.get("avatar");
+            let avatarUrl=null;
+            if(av&&typeof av.url==="function") avatarUrl=av.url();
+            else if(typeof av==="string") avatarUrl=av;
+            uMap[u.id] = {
+              name:u.get("name")||"—", username:u.get("username")||"—",
+              uid:u.get("uid")||"—",  country:u.get("country")||"—",
+              gender:u.get("gender")||"—", coins:u.get("coins")||0,
+              avatar:avatarUrl,
+            };
+          });
+        }
+        setAgencies(top10.map(a=>({...a,...(uMap[a.agent_id]||{})})));
+      } catch(e){ console.error(e); }
+      finally { setLoading(false); setTimeout(()=>setAnimated(true),80); }
+    })();
+  }, []);
+
+  const maxTotal = agencies[0]?.total||1;
+
+  if (loading) return (
+    <div className="t10-card">
+      <div className="t10-header">
+        <div className="t10-title-group">
+          <span className="t10-eyebrow">Agency Leaderboard</span>
+          <h2 className="t10-title">Top 10 Agencies</h2>
+        </div>
+      </div>
+      <div className="t10-loading"><div className="t10-spinner"/><div className="t10-spinner t10-spinner--2"/><p>Loading…</p></div>
+    </div>
+  );
+
+  if (!agencies.length) return (
+    <div className="t10-card"><div className="t10-empty">No agency data</div></div>
+  );
+
+  return (
+    <div className="t10-card">
+      <div className="t10-header">
+        <div className="t10-title-group">
+          <span className="t10-eyebrow">Agency Leaderboard</span>
+          <h2 className="t10-title">Top 10 Agencies</h2>
+          <span className="t10-sub">Ranked by total combined earnings</span>
+        </div>
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          <span className="t10-badge">Top 10</span>
+          <ViewToggle view={view} setView={setView} />
+        </div>
+      </div>
+
+      {/* ── CARD VIEW ── */}
+      {view==="card" && (
+        <div className="t10-cards-grid">
+          {agencies.map((ag,i) => {
+            const color=RANK_COLORS_T10[i]||"#818cf8";
+            const isTop3=i<3;
+            const g=(ag.gender||"").toLowerCase();
+            const gIcon=g==="male"?"♂":g==="female"?"♀":"◎";
+            const gClr=g==="male"?"#4f9cf9":g==="female"?"#f472b6":"#94a3b8";
+            return (
+              <div key={ag.agent_id} className={`t10-agcard${isTop3?" t10-agcard--top3":""}`}
+                style={{"--rc":color, animationDelay:`${i*60}ms`}}>
+                {/* Crown / rank */}
+                <div className="t10-agcard-rank">{i<3?RANK_MEDALS_T10[i]:`#${i+1}`}</div>
+                {/* Avatar with glow ring */}
+                <div className="t10-agcard-av-wrap">
+                  <div className="t10-agcard-av-ring" style={{borderColor:`${color}55`}}>
+                    <UserAv u={ag} size={60} />
+                  </div>
+                  {isTop3 && <div className="t10-agcard-av-glow" style={{background:color}}/>}
+                </div>
+                {/* Name */}
+                <div className="t10-agcard-name">{ag.name||ag.agent_id}</div>
+                <div className="t10-agcard-uname">@{ag.username||"—"}</div>
+                {/* Chips */}
+                <div className="t10-agcard-chips">
+                  {ag.uid!=="—"&&<span className="t10-chip t10-chip--uid">#{ag.uid}</span>}
+                  {ag.country!=="—"&&<span className="t10-chip t10-chip--cnt">🌏 {ag.country}</span>}
+                  <span className="t10-chip" style={{color:gClr,borderColor:`${gClr}30`}}>{gIcon}</span>
+                </div>
+                {/* Earnings */}
+                <div className="t10-agcard-earn" style={{color}}>
+                  <span className="t10-agcard-earn-val">{fmtEarn(ag.total)}</span>
+                  <span className="t10-agcard-earn-lbl">diamonds</span>
+                </div>
+                {/* Progress bar */}
+                <div className="t10-agcard-bar">
+                  <div className="t10-agcard-bar-fill" style={{
+                    width:animated?`${Math.max((ag.total/maxTotal)*100,3)}%`:"0%",
+                    background:`linear-gradient(90deg,${color}88,${color})`,
+                    transitionDelay:`${i*60}ms`
+                  }}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── LIST VIEW ── */}
+      {view==="list" && (
+        <div className="t10-list-wrap">
+          {agencies.map((ag,i) => {
+            const color=RANK_COLORS_T10[i]||"#818cf8";
+            const isTop3=i<3;
+            const g=(ag.gender||"").toLowerCase();
+            const gIcon=g==="male"?"♂":g==="female"?"♀":"◎";
+            const gClr=g==="male"?"#4f9cf9":g==="female"?"#f472b6":"#94a3b8";
+            return (
+              <div key={ag.agent_id} className={`t10-lrow${isTop3?" t10-lrow--top3":""}`}
+                style={{animationDelay:`${i*45}ms`}}>
+                <div className="t10-lrow-rank" style={{color}}>{i<3?RANK_MEDALS_T10[i]:`#${i+1}`}</div>
+                <UserAv u={ag} size={40}/>
+                <div className="t10-lrow-info">
+                  <span className="t10-lrow-name">{ag.name||ag.agent_id}</span>
+                  <span className="t10-lrow-sub">
+                    @{ag.username||"—"}
+                    {ag.uid!=="—"&&<> · <span style={{fontFamily:"var(--dash-fm)"}}>UID {ag.uid}</span></>}
+                    {ag.country!=="—"&&<> · {ag.country}</>}
+                  </span>
+                </div>
+                <span style={{color:gClr,fontSize:"13px",flexShrink:0}}>{gIcon}</span>
+                <div className="t10-lrow-bar">
+                  <div className="t10-lrow-bar-fill" style={{
+                    width:animated?`${Math.max((ag.total/maxTotal)*100,2)}%`:"0%",
+                    background:color, transitionDelay:`${i*45}ms`
+                  }}/>
+                </div>
+                <div className="t10-lrow-earn" style={{color}}>{fmtEarn(ag.total)}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   RECENTLY JOINED — 20 users, card + list view
+════════════════════════════════════════════════════════════ */
+function RecentUsers({ users, loading }) {
+  const [view, setView] = useState("card");
+
+  const GenderChip = ({ gender }) => {
+    const g=(gender||"").toLowerCase();
+    const icon=g==="male"?"♂":g==="female"?"♀":"◎";
+    const clr=g==="male"?"#4f9cf9":g==="female"?"#f472b6":"#94a3b8";
+    return <span className="ru-gender-chip" style={{color:clr,borderColor:`${clr}30`}}>{icon} {gender!=="—"?gender:"N/A"}</span>;
+  };
+
+  return (
+    <div className="ru-wrap">
+      <div className="ru-header">
+        <div>
+          <p className="dash-eyebrow">Activity</p>
+          <h2 className="dash-section-title">
+            Recently Joined
+            <span className="dash-section-badge">Last 20</span>
+          </h2>
+        </div>
+        {!loading && users.length>0 && <ViewToggle view={view} setView={setView}/>}
+      </div>
+
+      {loading ? (
+        <div className="ru-skels">
+          {Array.from({length:6}).map((_,i)=>(
+            <div key={i} className="ru-skel" style={{animationDelay:`${i*60}ms`}}/>
+          ))}
+        </div>
+      ) : view==="card" ? (
+        /* ── CARD VIEW ── */
+        <div className="ru-cards-grid">
+          {users.map((u,i) => {
+            const g=(u.gender||"").toLowerCase();
+            const gClr=g==="male"?"#4f9cf9":g==="female"?"#f472b6":"#94a3b8";
+            return (
+              <div key={u.id} className="ru-card" style={{animationDelay:`${i*35}ms`}}>
+                <div className="ru-card-rank">#{i+1}</div>
+                <div className="ru-card-av">
+                  <UserAv u={u} size={56}/>
+                  <div className="ru-card-av-ring" style={{borderColor:`${gClr}40`}}/>
+                </div>
+                <div className="ru-card-name">{u.name}</div>
+                <div className="ru-card-uname">@{u.username}</div>
+                <div className="ru-card-chips">
+                  <GenderChip gender={u.gender}/>
+                  {u.uid&&u.uid!=="—"&&<span className="ru-chip-uid">UID {u.uid}</span>}
+                </div>
+                <div className="ru-card-time">{timeAgo(u.createdAt)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── LIST VIEW ── */
+        <div className="ru-list">
+          {users.map((u,i) => {
+            const g=(u.gender||"").toLowerCase();
+            const gClr=g==="male"?"#4f9cf9":g==="female"?"#f472b6":"#94a3b8";
+            return (
+              <div key={u.id} className="ru-row" style={{animationDelay:`${i*30}ms`}}>
+                <span className="ru-row-rank">{i+1}</span>
+                <UserAv u={u} size={36}/>
+                <div className="ru-row-info">
+                  <span className="ru-row-name">{u.name}</span>
+                  <span className="ru-row-uname">@{u.username}{u.uid&&u.uid!=="—"?` · UID ${u.uid}`:""}</span>
+                </div>
+                <GenderChip gender={u.gender}/>
+                <span className="ru-row-time">{timeAgo(u.createdAt)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
 
   /* ── Overview stat counts ── */
@@ -748,7 +889,7 @@ export default function Dashboard() {
       const q    = new Parse.Query(User);
       q.descending("createdAt");
       q.limit(20);
-      q.select("name", "username", "gender", "avatar", "createdAt");
+      q.select("name","username","gender","avatar","createdAt","uid");
       const results = await q.find({ useMasterKey: true });
       setRecentUsers(results.map(u => {
         const av = u.get("avatar");
@@ -760,6 +901,7 @@ export default function Dashboard() {
           name:      u.get("name")     || "—",
           username:  u.get("username") || "anonymous",
           gender:    u.get("gender")   || "—",
+          uid:       u.get("uid")      || "—",
           avatar,
           createdAt: u.get("createdAt"),
         };
@@ -788,7 +930,7 @@ export default function Dashboard() {
         <div className="dash-header-left">
           <p className="dash-eyebrow">Admin Panel</p>
           <h1 className="dash-title">Dashboard</h1>
-          <p className="dash-sub">Platform overview of your application</p>
+          <p className="dash-sub">Platform overview · counts fetched in parallel</p>
         </div>
         <button className="dash-refresh-btn"
           onClick={() => { fetchStats(); fetchRecentUsers(); }}
@@ -847,67 +989,27 @@ export default function Dashboard() {
         </div>
       )}
 
-{/* ══════════ ANALYTICS CHARTS ══════════ */}
-<div className="dash-section">
-  <div className="dash-section-header">
-    <p className="dash-eyebrow">Analytics</p>
-    <h2 className="dash-section-title">Charts & Growth</h2>
-  </div>
-  <AnalyticsSection />
-</div>
-
-{/* ══════════ TOP 10 AGENCY ══════════ */}
-<div className="dash-section">
-  <div className="dash-section-header">
-    <p className="dash-eyebrow">Leaderboard</p>
-    <h2 className="dash-section-title">Top Agencies</h2>
-  </div>
-  <Top10Agency />
-</div>
-
-{/* ══════════ RECENTLY JOINED ══════════ */}
+      {/* ══════════ ANALYTICS CHARTS ══════════ */}
       <div className="dash-section">
         <div className="dash-section-header">
-          <p className="dash-eyebrow">Activity</p>
-          <h2 className="dash-section-title">
-            Recently Joined New Users
-            <span className="dash-section-badge">Last top 20 users are</span>
-          </h2>
+          <p className="dash-eyebrow">Analytics</p>
+          <h2 className="dash-section-title">Charts &amp; Growth</h2>
         </div>
+        <AnalyticsSection />
+      </div>
 
-        {loadingRecent ? (
-          <div className="dash-recent-list">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="dash-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
-            ))}
-          </div>
-        ) : (
-          <div className="dash-recent-list">
-            {recentUsers.map((user, i) => {
-              const clr   = avatarColor(user.username);
-              const g     = (user.gender || "").toLowerCase();
-              const gColor = g === "male" ? "#4f9cf9" : g === "female" ? "#f472b6" : "#94a3b8";
-              const gIcon  = g === "male" ? "♂" : g === "female" ? "♀" : "◎";
-              return (
-                <div key={user.id} className="dash-recent-row" style={{ animationDelay: `${i * 40}ms` }}>
-                  <span className="dash-recent-rank">{i + 1}</span>
-                  <div className="dash-recent-av-wrap">
-                    {user.avatar
-                      ? <img src={user.avatar} alt={user.name} className="dash-recent-av" />
-                      : <div className="dash-recent-av dash-recent-av--init" style={{ background: clr }}>{getInitial(user.name)}</div>
-                    }
-                  </div>
-                  <div className="dash-recent-info">
-                    <span className="dash-recent-name">{user.name}</span>
-                    <span className="dash-recent-uname">@{user.username}</span>
-                  </div>
-                  <span className="dash-recent-gender" style={{ color: gColor }}>{gIcon} {user.gender !== "—" ? user.gender : "N/A"}</span>
-                  <span className="dash-recent-time">{timeAgo(user.createdAt)}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* ══════════ TOP 10 AGENCIES ══════════ */}
+      <div className="dash-section">
+        <div className="dash-section-header">
+          <p className="dash-eyebrow">Leaderboard</p>
+          <h2 className="dash-section-title">Top Agencies</h2>
+        </div>
+        <Top10Agency />
+      </div>
+
+      {/* ══════════ RECENTLY JOINED ══════════ */}
+      <div className="dash-section">
+        <RecentUsers users={recentUsers} loading={loadingRecent} />
       </div>
 
     </div>

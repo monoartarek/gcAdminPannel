@@ -33,6 +33,12 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     },
 
     {
+      title: 'App Admin',
+      icon: 'fas fa-cogs',
+      label: 'Make App Admin', path: '/app-admin/create' 
+    },
+
+    {
       title: 'HOST/Agency',
       icon: 'fas fa-building',
       sub: [
@@ -41,34 +47,24 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'All Agency History', path: '/host/history' }
       ]
     },
-        {
-      title: 'Salary Reports',
-      icon: 'fas fa-file-invoice-dollar',
-      sub: [
-        { label: 'Salary Queries', path: '/salary-queries' },
-        { label: 'Full Reports', path: '/full-reports' }
-      ]
-    },
 
-    {
-      title: 'App Admin',
-      icon: 'fas fa-cogs',
-      label: 'Make App Admin', path: '/app-admin/create' 
-    },
-
-    
     { title: 'Daily Bonus', icon: 'fas fa-gift', path: '/app-admin/daily-bonus' },
-    { title: 'App Settings', icon: 'fas fa-cogs', path: '/app-settings' },
+    { title: 'Live Bonus', icon: 'fas fa-gift', path: '/live-bonus' },
+    { title: 'Live Streams', icon: 'fas fa-video', path: '/live-streaming' },
+    { title: 'Splash Banner', icon: 'fas fa-bolt', path: '/splash-banner' },
+    { title: 'Banner Image', icon: 'fas fa-image', path: '/banner-image' },
     { title: 'Messages', icon: 'fas fa-envelope', path: '/messages' },
     { title: 'Posts', icon: 'fas fa-file-alt', path: '/posts' },
     { title: 'Comments', icon: 'fas fa-comments', path: '/comments' },
-    { title: 'Banner Image', icon: 'fas fa-image', path: '/banner-image' },
-    { title: 'Splash Banner', icon: 'fas fa-bolt', path: '/splash-banner' },
-    { title: 'Live Bonus', icon: 'fas fa-gift', path: '/live-bonus' },
-    { title: 'Live Streams', icon: 'fas fa-video', path: '/live-streaming' },
-    { title: 'Top Streams', icon: 'fas fa-star', path: '/top-streams' },
     { title: 'Stories', icon: 'fas fa-film', path: '/stories' },
-
+    {
+      title: 'Official Announcement',
+      icon: 'fas fa-bullhorn',
+      sub: [
+        { label: 'All Announcements', path: '/announcements/all' },
+        { label: 'Add New Announcement', path: '/announcements/add' }
+      ]
+    },
     {
       title: 'Gifts',
       icon: 'fas fa-gift',
@@ -77,7 +73,6 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'Add New Gift', path: '/gifts/add-new' }
       ]
     },
-
     {
       title: 'VIP',
       icon: 'fas fa-gem',
@@ -86,7 +81,6 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'Add New Assets', path: '/vip/add' }
       ]
     },
-
     {
       title: 'Avatar Frame',
       icon: 'fas fa-image',
@@ -95,7 +89,6 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'Add New Avatar Frame', path: '/avatar/add' }
       ]
     },
-
     {
       title: 'Party Theme',
       icon: 'fas fa-palette',
@@ -114,16 +107,26 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       ]
     },
 
+
     {
-      title: 'Official Announcement',
-      icon: 'fas fa-bullhorn',
+      title: 'Salary Reports',
+      icon: 'fas fa-file-invoice-dollar',
       sub: [
-        { label: 'All Announcements', path: '/announcements/all' },
-        { label: 'Add New Announcement', path: '/announcements/add' }
+        { label: 'Salary Queries', path: '/salary-queries' },
+        { label: 'Full Reports', path: '/full-reports' }
       ]
     },
 
+
+    
+    { title: 'Top Streams', icon: 'fas fa-star', path: '/top-streams' },
+    
+
+
+
+
     { title: 'Game History', icon: 'fas fa-gamepad', path: '/games-history' },
+    { title: 'App Settings', icon: 'fas fa-cogs', path: '/app-settings' },
     { title: 'Agora Settings', icon: 'fas fa-cogs', path: '/agora-settings' },
     // { title: 'Payments', icon: 'fas fa-hand-holding-usd', path: '/payments' },
 
