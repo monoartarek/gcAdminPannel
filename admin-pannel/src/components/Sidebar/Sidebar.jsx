@@ -106,14 +106,17 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
       ]
     },
 
-    {
-      title: 'Entrance Effect',
-      icon: 'fas fa-magic',
-      sub: [
-        { label: 'All Entrance Effects', path: '/entrance-effects' },
-        { label: 'Add New Entrance Effects', path: '/entrance-effects/add' }
-      ]
-    },
+    { title: 'Entrance Effect', icon: 'fas fa-magic', path: '/entrance-effects/add' },
+
+
+    // {
+    //   title: 'Entrance Effect',
+    //   icon: 'fas fa-magic',
+    //   sub: [
+    //     { label: 'All Entrance Effects', path: '/entrance-effects' },
+    //     { label: 'Add New Entrance Effects', path: '/entrance-effects/add' }
+    //   ]
+    // },
 
 
     {
