@@ -81,14 +81,22 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'Add New Assets', path: '/vip/add' }
       ]
     },
-    {
-      title: 'Avatar Frame',
-      icon: 'fas fa-image',
-      sub: [
-        { label: 'All Avatar Frame', path: '/avatar-frames' },
-        { label: 'Add New Avatar Frame', path: '/avatar/add' }
-      ]
-    },
+
+    { title: 'Avatar Frame', icon: 'fas fa-image', path: '/avatar/add' },
+
+
+
+    // {
+    //   title: 'Avatar Frame',
+    //   icon: 'fas fa-image',
+    //   sub: [
+    //     { label: 'All Avatar Frame', path: '/avatar-frames' },
+    //     { label: 'Add New Avatar Frame', path: '/avatar/add' }
+    //   ]
+    // },
+
+
+
     {
       title: 'Party Theme',
       icon: 'fas fa-palette',
@@ -142,7 +150,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     { title: 'Reports', icon: 'fas fa-chart-line', path: '/reports' },
     { title: 'Admin Login History', icon: 'fas fa-history', path: '/adminloginhistory' },
-    { title: 'Banned Devices', icon: 'fas fa-ban', path: '/banned-devices' },
+    // { title: 'Banned Devices', icon: 'fas fa-ban', path: '/banned-devices' },
 
     // {
     //   title: 'Streamings',

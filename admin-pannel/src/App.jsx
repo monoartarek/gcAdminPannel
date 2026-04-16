@@ -29,7 +29,7 @@ import GiftsPage from './Pages/AllGifts';
 import AddNewGiftsPage from './Pages/AddNewGifts';
 import AllAssetsPage from './Pages/VIPAllAssets';
 import AddNewAssetsPage from './Pages/AddNewAssets';
-import AvatarFramesPage from './Pages/AvatarFrames';
+// import AvatarFramesPage from './Pages/AvatarFrames';
 import AddNewFramePage from './Pages/AddNewFrame';
 import AllPartyThemes from './Pages/AllPartyThemes';
 import AddPartyThemesPage from './Pages/AddPartyThemes';
@@ -146,7 +146,7 @@ function App() {
 
                     <Route path ="/vip/add" element={<AddNewAssetsPage />} /> 
 
-                    <Route path ="/avatar-frames" element={<AvatarFramesPage />} />
+                    {/* <Route path ="/avatar-frames" element={<AvatarFramesPage />} /> */}
 
                     <Route path ="/avatar/add" element={<AddNewFramePage />} />
 
