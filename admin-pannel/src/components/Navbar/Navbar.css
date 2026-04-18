@@ -1,76 +1,236 @@
-.main-navbar {
-  height: var(--nav-height);
-  background: #020024;
-  background: linear-gradient(273deg,rgba(2, 0, 36, 1) 0%, rgba(9, 9, 121, 1) 50%, rgba(0, 212, 255, 1) 100%);  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 25px;
-  position: sticky;
-  top: 0;
-  z-index: 1100; /* Highest priority */
-  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
-}
-
-.nav-section { display: flex; align-items: center; gap: 15px; }
-
-.mobile-btn {
-  display: none;
-  font-size: 1.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--sidebar-bg);
-}
-
-.brand-logo {
-  font-weight: 800;
-  font-size: 1.2rem;
-  color: var(--sidebar-bg);
-  letter-spacing: -0.5px;
-}
-
-.admin-tag {
-  background: #ffffff16;
-  /* color: var(--accent); */
-  color: white;
-  padding: 4px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 16px;
-}
-
-.profile-pill {
+.priyu-nav-container {
+  height: 75px;
+  background: #E0E5EC;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 5px 5px 5px 15px;
-  border-radius: 12px;
-  transition: 0.3s;
-  cursor: pointer;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  box-shadow: 0 4px 15px rgba(163, 177, 198, 0.4);
+  gap: 20px;
 }
 
-.profile-pill:hover { background: var(--primary-bg); }
+.priyu-nav-left-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  min-width: 0; /* Allows the container to shrink on small screens */
+}
 
-.text-right { text-align: right; line-height: 1.2; }
-.p-name { font-size: 0.85rem; font-weight: 700; color: #1e293b; }
-.p-role { font-size: 0.7rem; color: #64748b; }
+/* --- BETTER BRAND DESIGN --- */
+.priyu-nav-brand-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding-right: 15px;
+  border-right: 2px solid rgba(0,0,0,0.05);
+}
 
-.p-avatar {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, var(--accent), #8b5cf6);
-  color: white;
-  border-radius: 10px;
+.priyu-brand-icon {
+  background: linear-gradient(135deg, #6C5CE7, #a29bfe);
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 3px 3px 6px #BABECC, -3px -3px 6px #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 0.9rem;
+}
+
+.priyu-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.brand-main {
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #31344B;
+  letter-spacing: -0.5px;
+}
+
+.brand-sub {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6C5CE7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* --- AUTO-SLIDING HISTORY VIEWPORT --- */
+.priyu-nav-history-viewport {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 5px;
+  scroll-behavior: smooth;
+  /* Hide scrollbar while keeping functionality */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+}
+
+.priyu-nav-history-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.priyu-history-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #E0E5EC;
+  border-radius: 50px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 4px 4px 8px #BABECC, -4px -4px 8px #ffffff;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.priyu-history-tab.active {
+  box-shadow: inset 3px 3px 6px #BABECC, inset -3px -3px 6px #ffffff;
+  color: #6C5CE7;
+  font-weight: 700;
+  border: 1px solid rgba(108, 92, 231, 0.1);
+}
+
+.tab-close {
+  opacity: 0.5;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.tab-close:hover {
+  opacity: 1;
+  color: #ff4d4f;
+}
+
+/* --- PROFILE --- */
+.priyu-nav-right-group {
+  display: flex;
+  align-items: center;
+}
+
+.priyu-nav-profile-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 6px 6px 16px;
+  background: #E0E5EC;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 6px 6px 12px #BABECC, -6px -6px 12px #ffffff;
+  transition: transform 0.2s;
+}
+
+.priyu-nav-profile-pill:active {
+  transform: scale(0.96);
+}
+
+.priyu-nav-username {
+  font-size: 13px;
+  font-weight: 800;
+  color: #31344B;
+  margin: 0;
+}
+
+.priyu-nav-role {
+  font-size: 10px;
+  color: #6C5CE7;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.priyu-nav-avatar-box {
+  width: 40px;
+  height: 40px;
+  background: #E0E5EC;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 2px 2px 5px #BABECC, inset -2px -2px 5px #ffffff;
+  position: relative;
+}
+
+.priyu-nav-avatar-img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.priyu-nav-status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 9px;
+  height: 9px;
+  background: #00ca71;
+  border: 2px solid #E0E5EC;
+  border-radius: 50%;
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 1024px) {
+  .priyu-nav-brand-box { border-right: none; }
 }
 
 @media (max-width: 768px) {
-  .mobile-btn { display: block; }
-  .text-right { display: none; } /* Hide name on small mobile if tight */
+  .priyu-nav-history-viewport, .priyu-nav-user-info {
+    display: none;
+  }
+  .priyu-nav-mobile-toggle {
+    display: block;
+    background: none;
+    border: none;
+    color: #6C5CE7;
+  }
+}
+
+/* --- HAMBURGER TOGGLE LOGIC --- */
+
+.priyu-nav-mobile-toggle {
+  display: none; /* Hidden by default on Big Screens (Desktop) */
+  background: #E0E5EC;
+  border: none;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #6C5CE7;
+  box-shadow: 4px 4px 8px #BABECC, -4px -4px 8px #ffffff;
+  transition: all 0.2s ease;
+  align-items: center;
+  justify-content: center;
+}
+
+.priyu-nav-mobile-toggle:active {
+  box-shadow: inset 2px 2px 5px #BABECC, inset -2px -2px 5px #ffffff;
+}
+
+/* --- RESPONSIVE BREAKPOINT --- */
+
+@media (max-width: 768px) {
+  .priyu-nav-mobile-toggle {
+    display: flex; /* Only shows on Mobile and Tablets */
+  }
+
+  .priyu-nav-brand-box {
+    border-right: none; /* Cleaner look for mobile */
+    padding-right: 0;
+  }
+
+  .priyu-nav-history-viewport {
+    display: none; /* Hide history tabs on mobile to save space */
+  }
+
+  .priyu-nav-user-info {
+    display: none; /* Hide text-based user info on mobile */
+  }
 }
