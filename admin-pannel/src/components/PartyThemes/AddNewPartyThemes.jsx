@@ -1,473 +1,317 @@
-// AddNewPartyThemes.jsx
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Parse from "../../parseConfig";
 import "./AddNewPartyThemes.css";
 
-/* ─────────────────────────────────────────
-   CONSTANTS
-───────────────────────────────────────── */
-var IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const GridIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+    <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+    <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+    <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+  </svg>
+);
+const ListIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="3" y="4" width="18" height="2.5" rx="1.25"/>
+    <rect x="3" y="10.75" width="18" height="2.5" rx="1.25"/>
+    <rect x="3" y="17.5" width="18" height="2.5" rx="1.25"/>
+  </svg>
+);
+const PlusIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+);
+const CloseIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+    <path d="M10 11v6M14 11v6"/>
+    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+  </svg>
+);
+const EditIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+);
 
-/* ─────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────── */
-function fmtSize(bytes) {
-  if (!bytes) return "";
-  if (bytes >= 1000000) return (bytes / 1000000).toFixed(1) + " MB";
-  return Math.round(bytes / 1000) + " KB";
-}
+const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+  <div className="pt-overlay" onClick={onCancel}>
+    <div className="pt-confirm-modal" onClick={e => e.stopPropagation()}>
+      <div className="pt-confirm-icon">⚠️</div>
+      <p>{message}</p>
+      <div className="pt-confirm-actions">
+        <button className="pt-btn-cancel" onClick={onCancel}>Cancel</button>
+        <button className="pt-btn-danger" onClick={onConfirm}>Delete</button>
+      </div>
+    </div>
+  </div>
+);
 
-function isImage(file) {
-  if (!file) return false;
-  return file.type.startsWith("image/");
-}
-
-/* ─────────────────────────────────────────
-   DROP ZONE COMPONENT
-───────────────────────────────────────── */
-function DropZone(props) {
-  var accept   = props.accept;
-  var file     = props.file;
-  var onFile   = props.onFile;
-  var onClear  = props.onClear;
-  var hasError = props.hasError;
-
-  var inputRef        = useRef(null);
-  var [drag, setDrag] = useState(false);
-
-  var imgSrc = file && isImage(file) ? URL.createObjectURL(file) : null;
-
-  function handleDragOver(e)  { e.preventDefault(); setDrag(true); }
-  function handleDragLeave()  { setDrag(false); }
-  function handleDrop(e) {
-    e.preventDefault(); setDrag(false);
-    var f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) onFile(f);
-  }
-  function handleClick() { if (!file) inputRef.current && inputRef.current.click(); }
-  function handleChange(e) {
-    var f = e.target.files && e.target.files[0];
-    if (f) onFile(f);
-    e.target.value = "";
-  }
-  function handleClear(e) { e.stopPropagation(); onClear(); }
-
-  var cls = "apt-drop";
-  if (drag)     cls += " drag";
-  if (file)     cls += " filled";
-  if (hasError) cls += " error";
-
+const EditModal = ({ theme, onSave, onCancel }) => {
+  const [credits, setCredits] = useState(theme.credits);
   return (
-    <div
-      className={cls}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={handleClick}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        style={{ display: "none" }}
-        onChange={handleChange}
-      />
-
-      {file ? (
-        <>
-          <div className="apt-file-info">
-            {imgSrc ? (
-              <img src={imgSrc} alt="preview" className="apt-img-prev" />
-            ) : (
-              <div className="apt-file-big">🖼️</div>
-            )}
-            <div className="apt-file-name" title={file.name}>{file.name}</div>
-            <div className="apt-file-meta">
-              <span className="apt-file-size">{fmtSize(file.size)}</span>
-              <span className="apt-file-ready">✓ Ready</span>
-            </div>
-          </div>
-          <button className="apt-file-clr" type="button" onClick={handleClear} title="Remove">✕</button>
-        </>
-      ) : (
-        <>
-          <div className="apt-drop-ico">
-            <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
-              <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 4v12M8 8l4-4 4 4"
-                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <div className="apt-drop-title">
-            {drag ? "Drop it here!" : "Drag & drop your PNG here"}
-          </div>
-          <div className="apt-drop-sub">PNG, JPG or WEBP · max 10 MB</div>
-          <button
-            className="apt-browse"
-            type="button"
-            onClick={function(e) { e.stopPropagation(); inputRef.current && inputRef.current.click(); }}
-          >
-            Browse files
-          </button>
-          <span className="apt-drop-badge">PNG · JPG · WEBP</span>
-        </>
-      )}
+    <div className="pt-overlay" onClick={onCancel}>
+      <div className="pt-edit-modal" onClick={e => e.stopPropagation()}>
+        <h3>Edit Credits</h3>
+        <p className="pt-edit-subtitle">For: <strong>{theme.name}</strong></p>
+        <input type="number" className="pt-edit-input" value={credits} onChange={e => setCredits(e.target.value)} min="0" autoFocus/>
+        <div className="pt-confirm-actions">
+          <button className="pt-btn-cancel" onClick={onCancel}>Cancel</button>
+          <button className="pt-btn-primary" onClick={() => onSave(parseInt(credits))}>Update</button>
+        </div>
+      </div>
     </div>
   );
-}
+};
 
-/* ─────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────── */
-export default function AddNewPartyThemes() {
-  var [themeName,  setThemeName]  = useState("");
-  var [credits,    setCredits]    = useState("");
-  var [pngFile,    setPngFile]    = useState(null);
+const AddThemeModal = ({ onClose, onSuccess }) => {
+  const [name, setName] = useState("");
+  const [credits, setCredits] = useState("");
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef();
 
-  var [errors,     setErrors]     = useState({});
-  var [saving,     setSaving]     = useState(false);
-  var [progress,   setProgress]   = useState(0);
-  var [progMsg,    setProgMsg]    = useState("");
-  var [success,    setSuccess]    = useState(null);
-  var [submitErr,  setSubmitErr]  = useState("");
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
 
-  function clearErr(key) {
-    setErrors(function(prev) {
-      var next = Object.assign({}, prev);
-      delete next[key];
-      return next;
-    });
-  }
-
-  function handlePngFile(file) {
-    if (!isImage(file)) {
-      setErrors(function(prev) {
-        return Object.assign({}, prev, { pngFile: "Please choose a PNG, JPG or WEBP image" });
-      });
-      return;
-    }
-    setPngFile(file);
-    clearErr("pngFile");
-  }
-
-  function validate() {
-    var e = {};
-    if (!themeName.trim())
-      e.themeName = "Party theme name is required";
-    if (!credits || isNaN(Number(credits)) || Number(credits) < 0)
-      e.credits   = "Enter a valid credit amount";
-    if (!pngFile)
-      e.pngFile   = "PNG file is required";
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
-
-  function handleReset() {
-    setThemeName(""); setCredits(""); setPngFile(null);
-    setErrors({}); setSuccess(null); setSubmitErr("");
-    setProgress(0); setProgMsg("");
-  }
-
-  async function handleSave() {
-    setSubmitErr("");
-    if (!validate()) return;
-
-    setSaving(true);
-    setProgress(10);
-    setProgMsg("Preparing…");
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name || !credits || !file) { setError("All fields are required."); return; }
+    setError(""); setLoading(true);
     try {
-      setProgress(25);
-      setProgMsg("Uploading image…");
-
-      var imgParseFile = new Parse.File(
-        pngFile.name.replace(/\s+/g, "_"),
-        pngFile
-      );
-      await imgParseFile.save();
-      setProgress(75);
-
-      setProgMsg("Saving to database…");
-      var PartyTheme = Parse.Object.extend("PartyThemes");
-      var obj = new PartyTheme();
-      obj.set("name",     themeName.trim());
-      obj.set("title",    themeName.trim());
-      obj.set("credits",  parseFloat(credits));
-      obj.set("price",    parseFloat(credits));
-      obj.set("coins",    parseFloat(credits));
-      obj.set("file",     imgParseFile);
-      obj.set("image",    imgParseFile);
-      obj.set("picture",  imgParseFile);
-      obj.set("category", "party_theme");
-      obj.set("type",     "party_theme");
-      await obj.save();
-
-      setProgress(100);
-      setProgMsg("Done!");
-      setSuccess({ name: themeName.trim(), id: obj.id });
-      setTimeout(function() { handleReset(); }, 4000);
-
+      const parseFile = new Parse.File(file.name.replace(/[^A-Za-z0-9_\-.]/g, "_"), file);
+      await parseFile.save();
+      const Gift = Parse.Object.extend("Gifts");
+      const gift = new Gift();
+      gift.set("name", name);
+      gift.set("categories", "party_theme");
+      gift.set("coins", parseInt(credits));
+      gift.set("period", 30);
+      gift.set("file", parseFile);
+      await gift.save();
+      onSuccess();
+      onClose();
     } catch (err) {
-      console.error("Save error:", err);
-      setSubmitErr((err && err.message) ? err.message : "Upload failed. Please try again.");
-      setProgress(0); setProgMsg("");
+      setError(err.message);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  }
-
-  var checks = useMemo(function() {
-    return [
-      { label: "Theme name",  done: !!themeName.trim() },
-      { label: "Credits",     done: !!credits && !isNaN(Number(credits)) && Number(credits) >= 0 },
-      { label: "PNG file",    done: !!pngFile },
-    ];
-  }, [themeName, credits, pngFile]);
-
-  var allDone     = checks.every(function(c) { return c.done; });
-  var imgPreview  = pngFile && isImage(pngFile) ? URL.createObjectURL(pngFile) : null;
-  var doneCount   = checks.filter(function(c) { return c.done; }).length;
-  var pct         = Math.round((doneCount / checks.length) * 100);
+  };
 
   return (
-    <div className="apt-page">
-      <div className="apt-topline" />
-      <div className="apt-wrap">
-
-        {/* HEADER */}
-        <div className="apt-header">
-          <div className="apt-logo">🎉</div>
-          <div>
-            <div className="apt-title">Add New Party Theme</div>
-            <div className="apt-subtitle">Upload a party theme with name, credits &amp; PNG file</div>
-          </div>
+    <div className="pt-overlay" onClick={onClose}>
+      <div className="pt-add-modal" onClick={e => e.stopPropagation()}>
+        <div className="pt-modal-header">
+          <h2>Add New Party Theme</h2>
+          <button className="pt-modal-close" onClick={onClose}><CloseIcon /></button>
         </div>
-
-        {/* SUCCESS */}
-        {success && (
-          <div className="apt-success">
-            <div className="apt-succ-ico">✓</div>
-            <div className="apt-succ-text">
-              "{success.name}" saved!
-              <small>ID: {success.id} · Form resets in 4 s…</small>
+        <form onSubmit={handleSubmit} className="pt-add-form">
+          <div className="pt-form-group">
+            <label>Theme Name <span className="pt-required">*</span></label>
+            <input type="text" placeholder="e.g. Galaxy Night Party" value={name} onChange={e => setName(e.target.value)} required/>
+          </div>
+          <div className="pt-form-group">
+            <label>Credits <span className="pt-required">*</span></label>
+            <input type="number" placeholder="e.g. 500" value={credits} onChange={e => setCredits(e.target.value)} min="0" required/>
+          </div>
+          <div className="pt-form-group">
+            <label>PNG File <span className="pt-required">*</span></label>
+            <div className={`pt-drop-zone ${preview ? "has-preview" : ""}`} onClick={() => fileRef.current.click()}>
+              {preview
+                ? <img src={preview} alt="preview" className="pt-drop-preview"/>
+                : <><div className="pt-drop-icon">🎨</div><p>Click to upload PNG</p></>}
+              <input ref={fileRef} type="file" accept=".png" onChange={handleFile} style={{ display: "none" }}/>
             </div>
           </div>
-        )}
-
-        {/* ERROR */}
-        {submitErr && (
-          <div className="apt-err-banner">✗ {submitErr}</div>
-        )}
-
-        {/* LAYOUT */}
-        <div className="apt-layout">
-
-          {/* ── FORM ── */}
-          <div className="apt-form-col">
-
-            {/* Party Theme Name */}
-            <div className="apt-section">
-              <div className="apt-sec-hdr">
-                <div className="apt-sec-ico">🎊</div>
-                <span className="apt-sec-title">Party Theme Name</span>
-                <span className="apt-req-badge">Required</span>
-              </div>
-              <div className="apt-sec-body">
-                <div className="apt-field">
-                  <label className="apt-label" htmlFor="apt-name">
-                    Name <span className="apt-req">*</span>
-                  </label>
-                  <input
-                    id="apt-name"
-                    className={"apt-input" + (errors.themeName ? " has-err" : "")}
-                    type="text"
-                    value={themeName}
-                    onChange={function(e) { setThemeName(e.target.value); clearErr("themeName"); }}
-                    placeholder="e.g. Tropical Luau, Galaxy Night…"
-                    maxLength={80}
-                    autoComplete="off"
-                  />
-                  {errors.themeName && (
-                    <span className="apt-field-err">⚠ {errors.themeName}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Credits */}
-            <div className="apt-section">
-              <div className="apt-sec-hdr">
-                <div className="apt-sec-ico">🪙</div>
-                <span className="apt-sec-title">Credits</span>
-                <span className="apt-req-badge">Required</span>
-              </div>
-              <div className="apt-sec-body">
-                <div className="apt-field">
-                  <label className="apt-label" htmlFor="apt-credits">
-                    Credit Amount <span className="apt-req">*</span>
-                  </label>
-                  <div className="apt-credits-wrap">
-                    <span className="apt-credits-pre">🪙</span>
-                    <input
-                      id="apt-credits"
-                      className={"apt-input apt-credits-input" + (errors.credits ? " has-err" : "")}
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={credits}
-                      onChange={function(e) { setCredits(e.target.value); clearErr("credits"); }}
-                      placeholder="e.g. 100"
-                    />
-                  </div>
-                  {errors.credits && (
-                    <span className="apt-field-err">⚠ {errors.credits}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* PNG File */}
-            <div className="apt-section">
-              <div className="apt-sec-hdr">
-                <div className="apt-sec-ico">🖼️</div>
-                <span className="apt-sec-title">PNG File</span>
-                <span className="apt-req-badge">Required</span>
-              </div>
-              <div className="apt-sec-body">
-                <DropZone
-                  accept={IMAGE_ACCEPT}
-                  file={pngFile}
-                  onFile={handlePngFile}
-                  onClear={function() { setPngFile(null); }}
-                  hasError={!!errors.pngFile}
-                />
-                {errors.pngFile && (
-                  <span className="apt-field-err" style={{ marginTop: 8, display: "flex" }}>
-                    ⚠ {errors.pngFile}
-                  </span>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          {/* ── SIDE PANEL ── */}
-          <div className="apt-side-col">
-            <div className="apt-preview-card">
-
-              {/* Live dot header */}
-              <div className="apt-prev-hdr">
-                <span className="apt-live-dot" />
-                <span className="apt-prev-title">Live Preview</span>
-              </div>
-
-              <div className="apt-prev-body">
-
-                {/* Mock theme card */}
-                <div className="apt-mock">
-                  <div className={"apt-mock-thumb" + (imgPreview ? " has-img" : "")}>
-                    {imgPreview
-                      ? <img src={imgPreview} alt="preview" />
-                      : <span>🎉</span>
-                    }
-                  </div>
-                  <div className="apt-mock-info">
-                    <div className={"apt-mock-name" + (!themeName.trim() ? " empty" : "")}>
-                      {themeName.trim() || "Theme name…"}
-                    </div>
-                    {credits && !isNaN(Number(credits)) && Number(credits) >= 0 && (
-                      <div className="apt-mock-credits">
-                        🪙 {Number(credits).toLocaleString()} credits
-                      </div>
-                    )}
-                    {pngFile && (
-                      <div className="apt-mock-file">
-                        🖼️ {pngFile.name}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Progress ring */}
-                <div className="apt-ring-wrap">
-                  <svg className="apt-ring" viewBox="0 0 64 64">
-                    <circle cx="32" cy="32" r="26" className="apt-ring-bg" />
-                    <circle
-                      cx="32" cy="32" r="26"
-                      className="apt-ring-fill"
-                      strokeDasharray={"163.4"}
-                      strokeDashoffset={163.4 - (163.4 * pct / 100)}
-                    />
-                  </svg>
-                  <div className="apt-ring-pct">{pct}%</div>
-                </div>
-
-                {/* Checklist */}
-                <div>
-                  <div className="apt-check-title">Completion</div>
-                  <div className="apt-checks">
-                    {checks.map(function(c) {
-                      return (
-                        <div key={c.label} className={"apt-check" + (c.done ? " done" : "")}>
-                          <div className="apt-check-ico">{c.done ? "✓" : ""}</div>
-                          {c.label}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {allDone && (
-                  <div className="apt-ready-msg">🚀 Ready to save!</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* PROGRESS BAR */}
-        {saving && (
-          <div className="apt-prog-wrap">
-            <div className="apt-prog-bar">
-              <div className="apt-prog-fill" style={{ width: progress + "%" }} />
-            </div>
-            <div className="apt-prog-row">
-              <span>{progMsg}</span>
-              <span>{progress}%</span>
-            </div>
-          </div>
-        )}
-
-        {/* FOOTER */}
-        <div className="apt-footer">
-          <div className="apt-foot-hint">
-            Fields marked <strong>*</strong> are required
-          </div>
-          <div className="apt-btn-group">
-            <button
-              className="apt-btn-reset"
-              type="button"
-              onClick={handleReset}
-              disabled={saving}
-            >
-              Reset
-            </button>
-            <button
-              className="apt-btn-save"
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <><span className="apt-save-spin" /> Uploading…</>
-              ) : (
-                <>🎉 Save Theme</>
-              )}
-            </button>
-          </div>
-        </div>
-
+          {error && <p className="pt-form-error">{error}</p>}
+          <button type="submit" className="pt-btn-submit" disabled={loading}>
+            {loading ? <span className="pt-spinner-sm"/> : "Save Party Theme"}
+          </button>
+        </form>
       </div>
+    </div>
+  );
+};
+
+const ThemeCard = ({ theme, onDelete, onEdit }) => (
+  <div className="pt-card">
+    <div className="pt-card-img-wrap">
+      {theme.fileUrl
+        ? <img src={theme.fileUrl} alt={theme.name} className="pt-card-img"/>
+        : <div className="pt-card-no-img">No Image</div>}
+    </div>
+    <div className="pt-card-body">
+      <p className="pt-card-name">{theme.name}</p>
+      <p className="pt-card-credits">💰 {theme.credits}</p>
+      <p className="pt-card-date">{theme.date}</p>
+      <div className="pt-card-actions">
+        <button className="pt-icon-btn pt-icon-edit" onClick={() => onEdit(theme)} title="Edit"><EditIcon/></button>
+        <button className="pt-icon-btn pt-icon-delete" onClick={() => onDelete(theme)} title="Delete"><TrashIcon/></button>
+      </div>
+    </div>
+  </div>
+);
+
+const ThemeRow = ({ theme, onDelete, onEdit }) => (
+  <tr className="pt-list-row">
+    <td>
+      <div className="pt-row-info">
+        {theme.fileUrl
+          ? <img src={theme.fileUrl} alt={theme.name} className="pt-list-thumb"/>
+          : <div className="pt-list-no-img">—</div>}
+        <span className="pt-row-name">{theme.name}</span>
+      </div>
+    </td>
+    <td><span className="pt-badge-credits">💰 {theme.credits}</span></td>
+    <td className="pt-date-cell">{theme.date}</td>
+    <td>
+      <div className="pt-row-actions">
+        <button className="pt-icon-btn pt-icon-edit" onClick={() => onEdit(theme)} title="Edit"><EditIcon/></button>
+        <button className="pt-icon-btn pt-icon-delete" onClick={() => onDelete(theme)} title="Delete"><TrashIcon/></button>
+      </div>
+    </td>
+  </tr>
+);
+
+export default function PartyThemes() {
+  const [themes, setThemes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState("card");
+  const [showAdd, setShowAdd] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const fetchThemes = async () => {
+    setLoading(true);
+    try {
+      const query = new Parse.Query("Gifts");
+      query.equalTo("categories", "party_theme");
+      query.descending("createdAt");
+      const results = await query.find();
+      setThemes(results.map(obj => ({
+        objectId: obj.id,
+        name: obj.get("name"),
+        categories: obj.get("categories"),
+        credits: obj.get("coins"),
+        fileUrl: obj.get("file") ? obj.get("file").url() : null,
+        date: obj.createdAt ? new Date(obj.createdAt).toLocaleDateString("en-GB") : "—",
+      })));
+    } catch (err) {
+      showToast("Failed to load: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchThemes(); }, []);
+
+  const handleDelete = async () => {
+    try {
+      const query = new Parse.Query("Gifts");
+      const obj = await query.get(confirmDelete.objectId);
+      await obj.destroy();
+      showToast("Theme deleted.");
+      fetchThemes();
+    } catch (err) {
+      showToast("Delete failed: " + err.message, "error");
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
+  const handleEdit = async (newCredits) => {
+    try {
+      const query = new Parse.Query("Gifts");
+      const obj = await query.get(editTarget.objectId);
+      obj.set("coins", newCredits);
+      await obj.save();
+      showToast("Credits updated!");
+      fetchThemes();
+    } catch (err) {
+      showToast("Update failed: " + err.message, "error");
+    } finally {
+      setEditTarget(null);
+    }
+  };
+
+  return (
+    <div className="pt-wrapper">
+      {toast && <div className={`pt-toast pt-toast-${toast.type}`}>{toast.msg}</div>}
+      {showAdd && <AddThemeModal onClose={() => setShowAdd(false)} onSuccess={() => { fetchThemes(); showToast("Theme added!"); }}/>}
+      {confirmDelete && <ConfirmModal message={`Delete "${confirmDelete.name}"?`} onConfirm={handleDelete} onCancel={() => setConfirmDelete(null)}/>}
+      {editTarget && <EditModal theme={editTarget} onSave={handleEdit} onCancel={() => setEditTarget(null)}/>}
+
+      <div className="pt-header">
+        <div className="pt-header-left">
+          <nav className="pt-breadcrumb">
+            <span>Features</span><span className="pt-bc-sep">›</span>
+            <span className="pt-bc-active">Party Themes</span>
+          </nav>
+          <h1 className="pt-title">
+            Party Themes
+            {!loading && <span className="pt-count-badge">{themes.length}</span>}
+          </h1>
+        </div>
+        <div className="pt-header-right">
+          <div className="pt-view-toggle">
+            <button className={`pt-toggle-btn ${viewMode === "card" ? "active" : ""}`} onClick={() => setViewMode("card")} title="Card View"><GridIcon/></button>
+            <button className={`pt-toggle-btn ${viewMode === "list" ? "active" : ""}`} onClick={() => setViewMode("list")} title="List View"><ListIcon/></button>
+          </div>
+          <button className="pt-btn-add" onClick={() => setShowAdd(true)}>
+            <PlusIcon/><span className="pt-btn-add-text">Add New Theme</span>
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="pt-loading"><div className="pt-spinner"/><p>Loading…</p></div>
+      ) : themes.length === 0 ? (
+        <div className="pt-empty">
+          <div className="pt-empty-icon">🎉</div>
+          <p>No party themes yet.</p>
+          <button className="pt-btn-add" onClick={() => setShowAdd(true)}><PlusIcon/> <span>Add New Theme</span></button>
+        </div>
+      ) : viewMode === "card" ? (
+        <div className="pt-card-grid">
+          {themes.map(t => <ThemeCard key={t.objectId} theme={t} onDelete={setConfirmDelete} onEdit={setEditTarget}/>)}
+        </div>
+      ) : (
+        <div className="pt-table-wrap">
+          <table className="pt-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Credits</th>
+                <th>Date</th>
+                <th>Act.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {themes.map(t => <ThemeRow key={t.objectId} theme={t} onDelete={setConfirmDelete} onEdit={setEditTarget}/>)}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
