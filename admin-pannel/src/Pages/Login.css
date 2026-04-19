@@ -184,3 +184,71 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- Security & Banned UI --- */
+
+.attempts-warning {
+  font-size: 11px;
+  color: #ff4d4f;
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.banned-card {
+  padding: 40px 20px;
+  text-align: center;
+  border: 2px solid rgba(255, 77, 79, 0.2);
+}
+
+.banned-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  background: #E0E5EC;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 6px 6px 12px #BABECC, -6px -6px 12px #ffffff;
+}
+
+.banned-content h2 {
+  color: #31344B;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.banned-content p {
+  color: #777;
+  font-size: 14px;
+}
+
+.ip-badge {
+  display: inline-block;
+  margin: 15px 0;
+  padding: 8px 16px;
+  background: #fff;
+  border-radius: 50px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #6C5CE7;
+  box-shadow: inset 2px 2px 5px #BABECC, inset -2px -2px 5px #ffffff;
+}
+
+.cooldown-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #ff4d4f;
+  font-weight: 700;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.footer-note {
+  margin-top: 30px;
+  font-size: 11px !important;
+  opacity: 0.6;
+}

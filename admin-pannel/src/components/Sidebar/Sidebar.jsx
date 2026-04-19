@@ -58,7 +58,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     { title: 'Comments', icon: 'fas fa-comments', path: '/comments' },
     { title: 'Stories', icon: 'fas fa-film', path: '/stories' },
     {
-      title: 'Official Announcement',
+      title: 'Official Announce',
       icon: 'fas fa-bullhorn',
       sub: [
         { label: 'All Announcements', path: '/announcements/all' },
@@ -152,7 +152,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
     // },
 
     { title: 'Reports', icon: 'fas fa-chart-line', path: '/reports' },
-    { title: 'Admin Login History', icon: 'fas fa-history', path: '/adminloginhistory' },
+    { title: 'Login History', icon: 'fas fa-history', path: '/adminloginhistory' },
     // { title: 'Banned Devices', icon: 'fas fa-ban', path: '/banned-devices' },
 
     // {

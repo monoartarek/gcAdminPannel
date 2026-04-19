@@ -41,7 +41,7 @@ body {
   overflow-y: auto;
   transition: var(--transition);
   margin-left: var(--sidebar-wide);
-  padding: 25px;
+  padding: 5px;
   height: calc(100vh - var(--nav-height));
 }
 
