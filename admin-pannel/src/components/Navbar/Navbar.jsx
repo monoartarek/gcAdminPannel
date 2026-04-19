@@ -7,6 +7,12 @@ import "./Navbar.css";
 function Navbar({ onHamburgerClick }) {
   const [user, setUser] = useState(null);
   const [visitedHistory, setVisitedHistory] = useState([]);
+  const [liveStats, setLiveStats] = useState([
+    { type: "audio", count: 0 },
+    { type: "video", count: 0 },
+    { type: "multi", count: 0 },
+  ]);
+  const [statIndex, setStatIndex] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const scrollRef = useRef(null);
@@ -19,7 +25,44 @@ function Navbar({ onHamburgerClick }) {
     loadUser();
   }, []);
 
-  // Auto-scroll to the right whenever history updates or location changes
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const query = new Parse.Query("Streaming");
+        query.equalTo("streaming", true);
+        query.limit(1000);
+        const results = await query.find();
+
+        const counts = { audio: 0, video: 0, multi: 0 };
+        results.forEach((row) => {
+          const type = row.get("liveType");
+          if (type === "audio") counts.audio++;
+          else if (type === "video") counts.video++;
+          else if (type === "multi") counts.multi++;
+        });
+
+        setLiveStats([
+          { type: "audio", count: counts.audio },
+          { type: "video", count: counts.video },
+          { type: "multi", count: counts.multi },
+        ]);
+      } catch (err) {
+        console.error("Failed to fetch live stats:", err);
+      }
+    };
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStatIndex((prev) => (prev + 1) % 3);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -45,6 +88,8 @@ function Navbar({ onHamburgerClick }) {
     setVisitedHistory((prev) => prev.filter((item) => item.path !== pathToRemove));
   };
 
+  const current = liveStats[statIndex];
+
   return (
     <nav className="priyu-nav-container">
       <div className="priyu-nav-left-group">
@@ -64,17 +109,17 @@ function Navbar({ onHamburgerClick }) {
 
         <div className="priyu-nav-history-viewport" ref={scrollRef}>
           {visitedHistory.map((item) => (
-            <div 
-              key={item.path} 
+            <div
+              key={item.path}
               className={`priyu-history-tab ${location.pathname === item.path ? "active" : ""}`}
               onClick={() => navigate(item.path)}
             >
               <LayoutDashboard size={12} className="tab-icon" />
               <span>{item.name}</span>
-              <X 
-                size={12} 
-                className="tab-close" 
-                onClick={(e) => removeHistoryItem(e, item.path)} 
+              <X
+                size={12}
+                className="tab-close"
+                onClick={(e) => removeHistoryItem(e, item.path)}
               />
             </div>
           ))}
@@ -82,6 +127,23 @@ function Navbar({ onHamburgerClick }) {
       </div>
 
       <div className="priyu-nav-right-group">
+
+    
+          {/* Live Stats Carousel */}
+          <div
+            key={current.type}
+            className={`priyu-stat-carousel ${current.type}`}
+            onClick={() => navigate("/live-streaming")}
+            style={{ cursor: "pointer" }}
+          >
+            <span className="stat-dot" />
+            <span className="stat-label">{current.type}</span>
+            <span className="stat-count">{current.count}</span>
+            <span className="stat-suffix">live</span>
+          </div>
+        
+
+        {/* Profile */}
         {user && (
           <div className="priyu-nav-profile-pill" onClick={() => navigate("/profile")}>
             <div className="priyu-nav-user-info">
@@ -94,6 +156,7 @@ function Navbar({ onHamburgerClick }) {
             </div>
           </div>
         )}
+
       </div>
     </nav>
   );
