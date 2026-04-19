@@ -27,7 +27,6 @@ import TopStreamsPage from './Pages/TopStreams';
 import StoriesPage from './Pages/Stories';
 import GiftsPage from './Pages/AllGifts';
 import AddNewGiftsPage from './Pages/AddNewGifts';
-import AllAssetsPage from './Pages/VIPAllAssets';
 import AddNewAssetsPage from './Pages/AddNewAssets';
 // import AvatarFramesPage from './Pages/AvatarFrames';
 import AddNewFramePage from './Pages/AddNewFrame';
@@ -142,7 +141,7 @@ function App() {
 
                     <Route path ="/gifts/add-new" element={<AddNewGiftsPage />} />
 
-                    <Route path ="/vip-assets" element={<AllAssetsPage />} /> 
+                    {/* <Route path ="/vip-assets" element={<AllAssetsPage />} />  */}
 
                     <Route path ="/vip/add" element={<AddNewAssetsPage />} /> 
 

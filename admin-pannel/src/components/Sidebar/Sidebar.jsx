@@ -73,14 +73,17 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'Add New Gift', path: '/gifts/add-new' }
       ]
     },
-    {
-      title: 'VIP',
-      icon: 'fas fa-gem',
-      sub: [
-        { label: 'All Assets', path: '/vip-assets' },
-        { label: 'Add New Assets', path: '/vip/add' }
-      ]
-    },
+    // {
+    //   title: 'VIP',
+    //   icon: 'fas fa-gem',
+    //   sub: [
+    //     { label: 'All Assets', path: '/vip-assets' },
+    //     { label: 'Add New Assets', path: '/vip/add' }
+    //   ]
+    // },
+
+
+    { title: 'VIP', icon: 'fas fa-gem', path: '/vip/add' },
 
     { title: 'Avatar Frame', icon: 'fas fa-image', path: '/avatar/add' },
 
