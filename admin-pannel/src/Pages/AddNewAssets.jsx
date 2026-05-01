@@ -1,6 +1,6 @@
 
 import React from "react";
-import AddNewAssets from "../components/VIP/AddNewAssets"; // adjust the path
+import AddNewAssets from "../components/VIP/Vip"; // adjust the path
 
 export default function AddNewAssetsPage() {
   return (
