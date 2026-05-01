@@ -149,12 +149,22 @@ function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown }
               onChange={e => onChange(idx, "name", e.target.value)}
               placeholder="Game name" />
           </div>
-          <div className="as-game-field">
-            <label className="as-game-field-label">Company</label>
-            <input className="as-game-input" value={game.company || ""}
-              onChange={e => onChange(idx, "company", e.target.value)}
-              placeholder="Company" />
-          </div>
+            <div className="as-game-field">
+              <label className="as-game-field-label">Company</label>
+
+              <select
+                className="as-game-input"
+                value={game.company || ""}
+                onChange={(e) => onChange(idx, "company", e.target.value)}
+              >
+                <option value="">Select Company</option>
+                <option value="dell">dell</option>
+                <option value="baisun">baisun</option>
+                <option value="sud">sud</option>
+                <option value="bytesun">bytesun</option>
+                <option value="joysdk">joysdk</option>
+              </select>
+            </div>
         </div>
         <div className="as-game-field">
           <label className="as-game-field-label">Image URL</label>
