@@ -189,12 +189,29 @@ export default function AppSettings() {
 
   /* form state */
   const [appVersion,       setAppVersion]       = useState("");
-  const [agoraId,          setAgoraId]          = useState("");
-  const [agoraCert,        setAgoraCert]        = useState("");
   const [appLogo,          setAppLogo]          = useState(null);
   const [audioBg,          setAudioBg]          = useState(null);
   const [games,            setGames]            = useState([]);
+  const [agoraList,        setAgoraList]        = useState([]); //lastly added for multiple agora support, will be saved as  array of objects [{appId, certificate}]
 
+    const agoraChange = (i, key, value) => {
+      setAgoraList(list =>
+        list.map((item, idx) =>
+          idx === i ? { ...item, [key]: value } : item
+        )
+      );
+    };
+
+    const addAgora = () => {
+      setAgoraList(list => [
+        ...list,
+        { id: Date.now(), appId: "", certificate: "" }
+      ]);
+    };
+
+    const deleteAgora = (i) => {
+      setAgoraList(list => list.filter((_, idx) => idx !== i));
+    };
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -209,8 +226,19 @@ export default function AppSettings() {
         if (!obj) { showToast("No AppSettings found", "error"); setLoading(false); return; }
         setRecord(obj);
         setAppVersion(obj.get("appVersion") || "");
-        setAgoraId(obj.get("AgoraAppID") || "");
-        setAgoraCert(obj.get("AgoraAppCertificate") || "");
+        const credentials = obj.get("AgoraCredentials");
+
+        setAgoraList(
+          credentials && credentials.length
+            ? credentials
+            : [
+                {
+                  id: Date.now(),
+                  appId: obj.get("AgoraAppID") || "",
+                  certificate: obj.get("AgoraAppCertificate") || ""
+                }
+              ]
+        );
         setAppLogo(obj.get("appLogo") || null);
         setAudioBg(obj.get("audiobg") || null);
         setGames(JSON.parse(JSON.stringify(obj.get("AllGames") || [])));
@@ -226,7 +254,7 @@ export default function AppSettings() {
   useEffect(() => {
     if (!initialized.current) return;
     setUnsaved(true);
-  }, [appVersion, agoraId, agoraCert, appLogo, audioBg, games]);
+  }, [appVersion, agoraList, appLogo, audioBg, games]);
 
   /* ── Upload ── */
   const handleUpload = async (field, file) => {
@@ -247,8 +275,7 @@ export default function AppSettings() {
     setSaving(true);
     try {
       record.set("appVersion",          appVersion.trim());
-      record.set("AgoraAppID",          agoraId.trim());
-      record.set("AgoraAppCertificate", agoraCert.trim());
+      record.set("AgoraCredentials", agoraList);
       if (appLogo) record.set("appLogo", appLogo);
       if (audioBg) record.set("audiobg", audioBg);
       record.set("AllGames", games);
@@ -265,8 +292,15 @@ export default function AppSettings() {
     if (!record) return;
     initialized.current = false;
     setAppVersion(record.get("appVersion") || "");
-    setAgoraId(record.get("AgoraAppID") || "");
-    setAgoraCert(record.get("AgoraAppCertificate") || "");
+    setAgoraList(
+      record.get("AgoraCredentials") || [
+        {
+          id: Date.now(),
+          appId: "",
+          certificate: ""
+        }
+      ]
+    );
     setAppLogo(record.get("appLogo") || null);
     setAudioBg(record.get("audiobg") || null);
     setGames(JSON.parse(JSON.stringify(record.get("AllGames") || [])));
@@ -407,56 +441,63 @@ export default function AppSettings() {
 
         {/* ══ AGORA ══ */}
         {tab === "agora" && (
-          <Section icon="📡" title="Agora Live Streaming" desc="Credentials for RTC live streaming — keep these secure">
-            <div className="as-warning">
-              <span>⚠</span>
-              <p>These credentials power all live streaming. Do not expose them publicly.</p>
-              <button className="as-btn as-btn--sm as-btn--ghost" onClick={() => setShowCreds(v => !v)}>
-                {showCreds ? "🙈 Hide" : "👁 Reveal"}
-              </button>
-            </div>
+        <Section
+          icon="📡"
+          title="Agora Credentials"
+          desc="Manage multiple Agora projects like game cards"
+          action={
+            <button className="as-btn as-btn--primary" onClick={addAgora}>
+              + Add Credential
+            </button>
+          }
+        >
+          <div className="as-games-list">
+            {agoraList.map((item, idx) => (
+              <div key={item.id} className="as-game">
 
-            <div className="as-fields">
-              <Field label="Agora App ID" hint="32-character application identifier from Agora Console" full>
-                <div className="as-cred-row">
-                  <input
-                    className="as-input as-input--mono as-input--cred"
-                    type={showCreds ? "text" : "password"}
-                    value={agoraId}
-                    onChange={e => setAgoraId(e.target.value)}
-                    placeholder="Enter Agora App ID…"
-                  />
-                  <span className={`as-cred-len ${agoraId.length === 32 ? "ok" : ""}`}>
-                    {agoraId.length}/32 {agoraId.length === 32 ? "✓" : ""}
-                  </span>
+                <div className="as-game-top">
+                  <div className="as-game-id-col">
+                    <span className="as-game-id"># {idx + 1}</span>
+                  </div>
+
+                  <div className="as-game-order">
+                    <button
+                      className="as-icon-btn as-icon-btn--red"
+                      onClick={() => deleteAgora(idx)}
+                    >
+                      🗑
+                    </button>
+                  </div>
                 </div>
-              </Field>
 
-              <Field label="Agora App Certificate" hint="Used to sign RTC tokens for stream authentication" full>
-                <div className="as-cred-row">
-                  <input
-                    className="as-input as-input--mono as-input--cred"
-                    type={showCreds ? "text" : "password"}
-                    value={agoraCert}
-                    onChange={e => setAgoraCert(e.target.value)}
-                    placeholder="Enter App Certificate…"
-                  />
-                  <span className={`as-cred-len ${agoraCert.length === 32 ? "ok" : ""}`}>
-                    {agoraCert.length}/32 {agoraCert.length === 32 ? "✓" : ""}
-                  </span>
+                <div className="as-game-fields">
+
+                  <div className="as-game-field">
+                    <label className="as-game-field-label">Agora App ID</label>
+                    <input
+                      className="as-game-input"
+                      value={item.appId}
+                      onChange={(e) => agoraChange(idx, "appId", e.target.value)}
+                      placeholder="Enter App ID"
+                    />
+                  </div>
+
+                  <div className="as-game-field">
+                    <label className="as-game-field-label">Agora Certificate</label>
+                    <input
+                      className="as-game-input"
+                      value={item.certificate}
+                      onChange={(e) => agoraChange(idx, "certificate", e.target.value)}
+                      placeholder="Enter Certificate"
+                    />
+                  </div>
+
                 </div>
-              </Field>
-            </div>
-
-            <div className="as-info-box as-info-box--blue">
-              <div className="as-info-box-icon">🔑</div>
-              <div>
-                <strong>Token generation flow</strong>
-                <p>Your Parse Cloud Function <code>generateAgoraToken</code> reads these values to generate RTC tokens. Changes here take effect on the next stream join.</p>
               </div>
-            </div>
-          </Section>
-        )}
+            ))}
+          </div>
+        </Section>
+      )}
 
         {/* ══ GAMES ══ */}
         {tab === "games" && (
