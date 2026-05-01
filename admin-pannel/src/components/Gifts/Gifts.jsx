@@ -388,10 +388,23 @@ export default function Gifts() {
   useEffect(() => { setPage(0); }, [search, catFilter, sortBy, perPage]);
 
   /* ── Categories ── */
+  // const categories = useMemo(() => {
+  //   const s = new Set(rows.map(r => getCategory(r)).filter(Boolean));
+  //   return Array.from(s).sort();
+  // }, [rows]);
+
+  //selected items are show using useMemo
   const categories = useMemo(() => {
-    const s = new Set(rows.map(r => getCategory(r)).filter(Boolean));
+    const blocked = ["avatar_frame", "entrance_effect", "party_theme"];
+
+    const s = new Set(
+      rows
+        .map(r => getCategory(r))
+        .filter(cat => cat && !blocked.includes(cat))
+    );
+
     return Array.from(s).sort();
-  }, [rows]);
+  }, [rows]); 
 
   /* ── Stats ── */
   const totalCredits = useMemo(() =>
@@ -400,9 +413,36 @@ export default function Gifts() {
     rows.filter(r => getImage(r)).length, [rows]);
 
   /* ── Filter + sort ── */
+  // const filtered = useMemo(() => {
+  //   let list = rows;
+  //   if (catFilter !== "All") list = list.filter(r => getCategory(r) === catFilter);
+  //   const q = search.trim().toLowerCase();
+  //   if (q) {
+  //     list = list.filter(r =>
+  //       r.id.toLowerCase().includes(q) ||
+  //       getName(r).toLowerCase().includes(q) ||
+  //       getCategory(r).toLowerCase().includes(q)
+  //     );
+  //   }
+  //   if (sortBy === "newest")     list = [...list].sort((a,b) => new Date(b.get("createdAt")) - new Date(a.get("createdAt")));
+  //   if (sortBy === "oldest")     list = [...list].sort((a,b) => new Date(a.get("createdAt")) - new Date(b.get("createdAt")));
+  //   if (sortBy === "name")       list = [...list].sort((a,b) => getName(a).localeCompare(getName(b)));
+  //   if (sortBy === "credits-hi") list = [...list].sort((a,b) => (getCredits(b)||0) - (getCredits(a)||0));
+  //   if (sortBy === "credits-lo") list = [...list].sort((a,b) => (getCredits(a)||0) - (getCredits(b)||0));
+  //   return list;
+  // }, [rows, search, catFilter, sortBy]);
+
+ //removed from all gifts also 
   const filtered = useMemo(() => {
-    let list = rows;
-    if (catFilter !== "All") list = list.filter(r => getCategory(r) === catFilter);
+    const blocked = ["avatar_frame", "entrance_effect", "party_theme"];
+
+    // remove unwanted categories completely
+    let list = rows.filter(r => !blocked.includes(getCategory(r)));
+
+    if (catFilter !== "All") {
+      list = list.filter(r => getCategory(r) === catFilter);
+    }
+
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter(r =>
@@ -411,11 +451,18 @@ export default function Gifts() {
         getCategory(r).toLowerCase().includes(q)
       );
     }
-    if (sortBy === "newest")     list = [...list].sort((a,b) => new Date(b.get("createdAt")) - new Date(a.get("createdAt")));
-    if (sortBy === "oldest")     list = [...list].sort((a,b) => new Date(a.get("createdAt")) - new Date(b.get("createdAt")));
-    if (sortBy === "name")       list = [...list].sort((a,b) => getName(a).localeCompare(getName(b)));
-    if (sortBy === "credits-hi") list = [...list].sort((a,b) => (getCredits(b)||0) - (getCredits(a)||0));
-    if (sortBy === "credits-lo") list = [...list].sort((a,b) => (getCredits(a)||0) - (getCredits(b)||0));
+
+    if (sortBy === "newest")
+      list = [...list].sort((a,b) => new Date(b.get("createdAt")) - new Date(a.get("createdAt")));
+    if (sortBy === "oldest")
+      list = [...list].sort((a,b) => new Date(a.get("createdAt")) - new Date(b.get("createdAt")));
+    if (sortBy === "name")
+      list = [...list].sort((a,b) => getName(a).localeCompare(getName(b)));
+    if (sortBy === "credits-hi")
+      list = [...list].sort((a,b) => (getCredits(b)||0) - (getCredits(a)||0));
+    if (sortBy === "credits-lo")
+      list = [...list].sort((a,b) => (getCredits(a)||0) - (getCredits(b)||0));
+
     return list;
   }, [rows, search, catFilter, sortBy]);
 
