@@ -138,7 +138,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
 
 
-
+    { title: 'Gift & Coin History', icon: 'fas fa-history', path: '/gift-coin-history' },
     { title: 'Game History', icon: 'fas fa-gamepad', path: '/games-history' },
     { title: 'App Settings', icon: 'fas fa-cogs', path: '/app-settings' },
     // { title: 'Agora Settings', icon: 'fas fa-cogs', path: '/agora-settings' },

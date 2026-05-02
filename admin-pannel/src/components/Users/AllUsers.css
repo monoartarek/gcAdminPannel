@@ -452,7 +452,7 @@
   padding: 10px 16px;
   background: var(--au-bg3);
   border-bottom: 1px solid var(--au-border2);
-  gap: 8px;
+  gap: 80px;
 }
 .au-list-hcol {
   font-size: 10px; font-weight: 700;
@@ -464,10 +464,10 @@
 /* ── Each row ── */
 .au-list-row {
   display: grid;
-  grid-template-columns: 52px 1fr 120px 90px 90px 100px 124px;
+  grid-template-columns: 52px 1fr 150px 90px 90px 100px 124px;
   align-items: center;
   padding: 10px 16px;
-  gap: 8px;
+  gap: 80px;
   border-bottom: 1px solid var(--au-border);
   opacity: 0; transform: translateX(-6px);
   animation: auSlideIn 0.28s ease forwards;

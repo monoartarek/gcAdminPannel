@@ -46,6 +46,7 @@ import AdminLoginHistoryPage from './Pages/AdminLoginHistory';
 import BannedDevicePage from './Pages/BannedDevice';
 import SalaryQueryPage from './Pages/SalaryQuery';
 import FullReportPage from './Pages/FullReport';
+import GiftCoinPage from './Pages/GiftCoin';
 
 
 import Login from './Pages/Login';
@@ -180,6 +181,8 @@ function App() {
                     <Route path ="/salary-queries" element={<SalaryQueryPage />} />
 
                     <Route path ="/full-reports" element={<FullReportPage />} />
+
+                    <Route path ="/gift-coin-history" element={<GiftCoinPage />} />
 
                     
                   </Routes>
