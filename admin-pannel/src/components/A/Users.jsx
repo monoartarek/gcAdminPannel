@@ -80,7 +80,7 @@ function mapUser(u) {
     uid:       String(u.get("uid") || u.id),
     name:      u.get("name")       || "—",
     username:  u.get("username")   || "anonymous",
-    // coin:      u.get("coin")       || 0,
+    coin:      u.get("coin")       || 0,
     gender:    u.get("gender")     || "—",
     status:    u.get("status")     || "active",
     mode:      u.get("mode")       || "—",
@@ -90,16 +90,6 @@ function mapUser(u) {
     is_banned: !!u.get("is_banned"),           /* user block toggle */
     avatar:    avatarUrl,
     createdAt: u.get("createdAt"),
-    //Modified
-    country: u.get("country") || "",
-    credit: u.get("credit") || 0,
-    earning: u.get("diamonds") || 0,
-    creditSent: u.get("creditSent") || 0,
-    // fraud: u.get("fraud") || false,
-    bio: u.get("bio") || "",
-    first_name: u.get("first_name") || "",
-    last_name: u.get("last_name") || "",
-    avatar: avatarUrl,
   };
 }
 
@@ -161,7 +151,6 @@ export default function AllUsers() {
   const [viewUser,     setViewUser]     = useState(null);
   const [editUser,     setEditUser]     = useState(null);
   const [confirmModal, setConfirmModal] = useState(null); /* generic confirm */
-  
 
   /* ── toast ── */
   const showToast = useCallback((msg, type="success") => {
@@ -200,19 +189,12 @@ export default function AllUsers() {
 
       if (sort==="oldest") q.ascending("createdAt");
       else if (sort==="name")  q.ascending("name");
-      // else if (sort==="coins") q.descending("coin");
+      else if (sort==="coins") q.descending("coin");
       else q.descending("createdAt");
 
       q.limit(PAGE_SIZE); q.skip(pg * PAGE_SIZE);
-      //Modified
-      q.select(
-              "uid","name","username","coin","gender","status","mode","email",
-              "birthday","avatar","createdAt","device_id","is_banned",
-
-                    // NEW FIELDS
-              "country","credit","earning","creditSent","bio",
-              "first_name","last_name","user_state_in_app","lastOnline"
-              );
+      q.select("uid","name","username","coin","gender","status","mode","email",
+               "birthday","avatar","createdAt","device_id","is_banned");
 
       const [batch, count] = await Promise.all([q.find(mk), countQ.count(mk)]);
       setTotalCount(count);
@@ -349,35 +331,10 @@ export default function AllUsers() {
     try {
       const q   = new Parse.Query("_User");
       const obj = await q.get(editUser.objectId, { useMasterKey: true });
-
-
       obj.set("username", editUser.username);
-      obj.set("name", editUser.name);
-      obj.set("first_name", editUser.first_name);
-      obj.set("last_name", editUser.last_name);
-
-      obj.set("country", editUser.country);
-
-      obj.set("coin", Number(editUser.coin) || 0);
-      obj.set("credit", Number(editUser.credit) || 0);
-      obj.set("diamonds", Number(editUser.earning) || 0);
-      obj.set("creditSent", Number(editUser.creditSent) || 0);
-
-      obj.set("gender", editUser.gender);
-      // obj.set("mode", editUser.mode);
-      obj.set("bio", editUser.bio);
-
-      // obj.set("fraud", !!editUser.fraud);
-
-      // avatar (only if file object)
-      if (editUser.avatar === null) {
-        obj.unset("avatar"); //  THIS REMOVES IT FROM PARSE
-      } 
-      else if (editUser.avatar instanceof Parse.File) {
-        obj.set("avatar", editUser.avatar);
-      }
-
-
+      obj.set("coin",     Number(editUser.coin)||0);
+      obj.set("gender",   editUser.gender);
+      obj.set("mode",     editUser.mode);
       await obj.save(null, { useMasterKey: true });
       setUsers(prev => prev.map(u =>
         u.objectId === editUser.objectId ? { ...u, ...editUser, coin: Number(editUser.coin)||0 } : u
@@ -426,17 +383,7 @@ export default function AllUsers() {
           </button>
           {/* Edit */}
           <button className="au-icon-btn au-icon-btn--edit" title="Edit user"
-            onClick={() => setEditUser({
-                      ...user,
-                      country: user.country || "",
-                      credit: user.credit || 0,
-                      earning: user.earning || 0,
-                      creditSent: user.creditSent || 0,
-                      // fraud: user.fraud || false,
-                      bio: user.bio || "",
-                      first_name: user.first_name || "",
-                      last_name: user.last_name || "",
-                    })}>
+            onClick={() => setEditUser(user)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           {/* Suspend */}
@@ -584,10 +531,10 @@ export default function AllUsers() {
           <div className="au-profile-grid">
             {[
               { label:"UID",       value:viewUser.uid,      copy:true  },
-              // { label:"Coins",     value:viewUser.coin,     copy:false },
+              { label:"Coins",     value:viewUser.coin,     copy:false },
               { label:"Gender",    value:viewUser.gender,   copy:false },
               { label:"Status",    value:viewUser.status,   copy:false },
-              // { label:"Mode",      value:viewUser.mode,     copy:false },
+              { label:"Mode",      value:viewUser.mode,     copy:false },
               { label:"Email",     value:viewUser.email,    copy:true  },
               { label:"Device ID", value:viewUser.device_id||"—", copy:!!viewUser.device_id },
               { label:"Birthday",  value:viewUser.birthday?new Date(viewUser.birthday).toLocaleDateString("en-GB"):"—", copy:false },
@@ -675,19 +622,10 @@ export default function AllUsers() {
           <p className="au-edit-subtitle">@{editUser.username}</p>
           <div className="au-edit-fields">
             {[
-              { key:"username", label:"Username", type:"text" },
-              { key:"first_name", label:"First Name", type:"text" },
-              { key:"last_name", label:"Last Name", type:"text" },
-              { key:"country", label:"Country", type:"text" },
-
-              // { key:"coin", label:"Coins", type:"number" },
-              { key:"credit", label:"Credit", type:"number" },
-              { key:"earning", label:"Earning", type:"number" },
-              { key:"creditSent", label:"Credit Sent", type:"number" },
-
-              // { key:"gender", label:"Gender", type:"text" },
-              // { key:"mode", label:"Mode", type:"text" },
-              { key:"bio", label:"Bio", type:"text" },
+              { key:"username", label:"Username", type:"text"   },
+              { key:"coin",     label:"Coins",    type:"number" },
+              { key:"gender",   label:"Gender",   type:"text"   },
+              { key:"mode",     label:"Mode",     type:"text"   },
             ].map(({ key, label, type }) => (
               <div key={key} className="au-edit-field">
                 <label className="au-edit-label">{label}</label>
@@ -697,98 +635,6 @@ export default function AllUsers() {
                   placeholder={label}/>
               </div>
             ))}
-
-           
-
-
-
-          <div className="au-edit-field au-avatar-field">
-
-            <label className="au-edit-label">Profile Avatar</label>
-
-            {/* AVATAR PREVIEW */}
-            <div className="au-avatar-box">
-              {editUser.avatar ? (
-                typeof editUser.avatar === "string" ? (
-                  <img src={editUser.avatar} alt="avatar" className="au-avatar-img" />
-                ) : (
-                  <div className="au-avatar-placeholder">New Image Selected</div>
-                )
-              ) : (
-                <div className="au-avatar-placeholder">No Avatar</div>
-              )}
-            </div>
-
-            {/* ACTION BUTTONS */}
-            <div className="au-avatar-actions">
-
-              {/* UPLOAD */}
-              <label className="au-avatar-upload">
-                📤 Upload
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-
-                    const parseFile = new Parse.File(file.name, file);
-                    await parseFile.save();
-
-                    setEditUser(p => ({
-                      ...p,
-                      avatar: parseFile
-                    }));
-                  }}
-                />
-              </label>
-
-              {/* DELETE */}
-              {editUser.avatar && (
-                <button
-                  type="button"
-                  className="au-avatar-delete"
-                  onClick={() =>
-                    setEditUser(p => ({
-                      ...p,
-
-                      // for delete avatar it will be null insted of ""
-                      avatar: ""
-                    }))
-                  }
-                >
-                  🗑 Remove
-                </button>
-              )}
-            </div>
-          </div>
-
-
-
-
-
-
-
-            <div className="au-edit-field">
-              <label className="au-edit-label">Gender</label>
-
-              <select
-                className="au-edit-input"
-                value={editUser.gender || ""}
-                onChange={(e) =>
-                  setEditUser(p => ({ ...p, gender: e.target.value }))
-                }
-              >
-                <option value="">Select gender</option>
-                  <option value="male">👨 Male</option>
-                  <option value="female">👩 Female</option>
-                  <option value="other">⚧ Other</option>
-              </select>
-            </div>
-
-
-
           </div>
           <div className="au-edit-actions">
             <button className="au-edit-cancel" onClick={() => setEditUser(null)}>Cancel</button>
@@ -887,7 +733,7 @@ export default function AllUsers() {
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
           <option value="name">By Name</option>
-          {/* <option value="coins">Most Coins</option> */}
+          <option value="coins">Most Coins</option>
         </select>
         <span className="au-result-count">
           {!loading && `${totalCount.toLocaleString()} result${totalCount!==1?"s":""}`}
@@ -970,7 +816,7 @@ export default function AllUsers() {
 
                 <div className="au-card-meta">
                   <div className="au-card-meta-row">
-                    {/* <span className="au-meta-key">Coins</span> */}
+                    <span className="au-meta-key">Coins</span>
                     <span className="au-meta-val au-meta-val--gold">🪙 {user.coin.toLocaleString()}</span>
                   </div>
                   <div className="au-card-meta-row">
@@ -1006,7 +852,7 @@ export default function AllUsers() {
             <span/>
             <span className="au-list-hcol">Name / Username</span>
             <span className="au-list-hcol">UID</span>
-            {/* <span className="au-list-hcol">Coins</span> */}
+            <span className="au-list-hcol">Coins</span>
             <span className="au-list-hcol">Joined</span>
             <span className="au-list-hcol">Status</span>
             <span className="au-list-hcol au-list-hcol--right">Actions</span>
@@ -1055,9 +901,9 @@ export default function AllUsers() {
                 </div>
 
                 {/* Coins */}
-                {/* <div className="au-list-coin-cell">
+                <div className="au-list-coin-cell">
                   <span className="au-list-coin">{user.coin.toLocaleString()}</span>
-                </div> */}
+                </div>
 
                 {/* Joined */}
                 <div className="au-list-time-cell">

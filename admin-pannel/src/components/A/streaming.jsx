@@ -2,8 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import Parse from "../../parseConfig";
 import AgoraRTC from "agora-rtc-sdk-ng";
 import "./Streaming.css";
-import emptySeatImg from "../../assets/seat_mic.png";
-
 
 /* ═══════════════════════════════════════════════
    Live Streaming — Admin Panel
@@ -79,8 +77,6 @@ export default function LiveStreaming() {
   const chatEnd    = useRef(null);
   const cmtTimer   = useRef(null);
   const uidRef     = useRef(Math.floor(Math.random()*900000)+100000);
-  
-  
 
   /* ── toast ── */
   const toast$ = useCallback((msg, type="info") => {
@@ -301,31 +297,6 @@ export default function LiveStreaming() {
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const pageItems  = filtered.slice(page*PER_PAGE, (page+1)*PER_PAGE);
 
-  const generateSeats = () => {
-    if (!viewer) return null;
-
-    const totalSeats = viewer.get("number_of_chairs") || 8;
-    const cohosts = viewer.get("cohost_list") || [];
-
-    const seats = [];
-
-    for (let i = 0; i < totalSeats; i++) {
-      const user = cohosts.find((u) => u.seatIndex === i);
-
-      seats.push(
-        <div key={i} className="seat">
-          {user ? (
-            <img src={user.image} alt={user.name} />
-          ) : (
-            <div className="empty-seat"><img src={emptySeatImg} alt="empty" className="empty-seat-img" /></div>
-          )}
-        </div>
-      );
-    }
-
-    return seats;
-  };
-
   /* ══════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════ */
@@ -505,9 +476,9 @@ export default function LiveStreaming() {
                 <div id="lv-video-player" className="ls-vinner">
                   {!remoteUsers.some(u=>u.videoTrack) && (
                     <div className="ls-novideo">
-                        <div className="seat-container">
-                          {generateSeats()}
-                        </div>
+                      <div className="ls-novideo-icon">{icon(viewer.get("party_type"))}</div>
+                      <p>Waiting for host…</p>
+                      <small>Stream will appear here</small>
                     </div>
                   )}
                 </div>
