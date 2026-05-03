@@ -46,7 +46,8 @@ import AdminLoginHistoryPage from './Pages/AdminLoginHistory';
 import BannedDevicePage from './Pages/BannedDevice';
 import SalaryQueryPage from './Pages/SalaryQuery';
 import FullReportPage from './Pages/FullReport';
-import GiftCoinPage from './Pages/GiftCoin';
+import GiftHistory from './Pages/GiftHistory';
+import CoinHistory from './Pages/CoinHistory';
 
 
 import Login from './Pages/Login';
@@ -55,6 +56,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import './App.css';
 import Profile from "./Pages/Profile";
+import GiftHistoryPage from './Pages/GiftHistory';
+import CoinHistoryPage from './Pages/CoinHistory';
 
 function App() {
 
@@ -182,7 +185,9 @@ function App() {
 
                     <Route path ="/full-reports" element={<FullReportPage />} />
 
-                    <Route path ="/gift-coin-history" element={<GiftCoinPage />} />
+                    <Route path ="/gift-history" element={<GiftHistoryPage   />} />
+
+                    <Route path ="/coin-history" element={<CoinHistoryPage/>} />
 
                     
                   </Routes>

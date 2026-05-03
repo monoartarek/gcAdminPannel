@@ -138,19 +138,25 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
 
 
-    { title: 'Gift & Coin History', icon: 'fas fa-history', path: '/gift-coin-history' },
+    {title: 'Gift & Coin History',
+      icon: 'fas fa-history',
+      sub: [
+        { label: 'Gift History', path: '/gift-history' },
+        { label: 'Coin History', path: '/coin-history' }
+      ]
+    },
+
     { title: 'Game History', icon: 'fas fa-gamepad', path: '/games-history' },
     { title: 'App Settings', icon: 'fas fa-cogs', path: '/app-settings' },
     // { title: 'Agora Settings', icon: 'fas fa-cogs', path: '/agora-settings' },
     // { title: 'Payments', icon: 'fas fa-hand-holding-usd', path: '/payments' },
 
     // {
-    //   title: 'Payouts',
-    //   icon: 'fas fa-money-bill-wave',
+    //   title: 'Gift & Coin History',
+    //   icon: 'fas fa-history',
     //   sub: [
-    //     { label: 'All Payouts', path: '/payouts/all' },
-    //     { label: 'Pending', path: '/payouts/pending' },
-    //     { label: 'Processing', path: '/payouts/processing' }
+    //     { label: 'Gift History', path: '/gift-history' },
+    //     { label: 'Coin History', path: '/coin-history' }
     //   ]
     // },
 
