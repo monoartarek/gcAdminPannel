@@ -1,284 +1,253 @@
 // GameHistory.jsx
 import React, { useState, useMemo, useEffect } from "react";
 import Parse from "../../parseConfig";
-import "./GamesHistory.css";
 
 /* ─────────────────────────────────────────
-   DUMMY DATA
+   ICONS (Tailwind compatible)
 ───────────────────────────────────────── */
-function generateDummyData() {
-  var names = [
-    "Alex Johnson","Maria Garcia","Chen Wei","Priya Patel",
-    "Omar Hassan","Sophie Martin","Lucas Silva","Aisha Nkomo",
-    "Riku Tanaka","Elena Petrov","James O'Brien","Fatima Al-Farsi",
-    "Carlos Mendez","Yuki Yamamoto","Sara Lindqvist","Kwame Asante",
-    "Ananya Roy","Dmitri Volkov","Layla Hussain","Tom Fischer",
-    "Mei Lin","Ahmed Khalil","Nadia Dupont","Bruno Costa",
-    "Isabella Romano","Sven Eriksson","Zara Khan","Felix Wagner",
-    "Amara Diallo","Viktor Novak",
-  ];
+const IconTrash = () => (
+  <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
 
-  var data = [];
-  var balance = 10000;
-  var now = Date.now();
+const IconChevronLeft = () => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+    <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
 
-  for (var i = 0; i < 47; i++) {
-    var isProfit = Math.random() > 0.45;
-    var score    = isProfit
-      ? Math.floor(Math.random() * 800) + 50
-      : -(Math.floor(Math.random() * 600) + 30);
-    balance += score;
-    var created = new Date(now - (47 - i) * 3600000 * (Math.random() * 8 + 1));
+const IconChevronRight = () => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
 
-    data.push({
-      objectId:       "OBJ" + String(1000 + i).padStart(4,"0"),
-      createdAt:      created.toLocaleString("en-US", { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" }),
-      userName:       names[i % names.length],
-      userUID:        "UID" + String(Math.floor(Math.random() * 900000) + 100000),
-      orderId:        "ORD-" + String(Math.floor(Math.random() * 90000) + 10000),
-      mgId:           "MG-" + String(Math.floor(Math.random() * 9000) + 1000),
-      roundId:        "RND-" + String(Math.floor(Math.random() * 9000) + 1000),
-      score:          score,
-      currentBalance: Math.max(0, balance),
-      type:           isProfit ? "PROFIT" : "LOSS",
-    });
-  }
-  return data;
-}
+const IconTrendUp = () => (
+  <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
+    <path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M17 6h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
-var DUMMY_DATA = generateDummyData();
-var PER_PAGE   = 10;
+const IconTrendDown = () => (
+  <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
+    <path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M17 18h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
-/* ─────────────────────────────────────────
-   ICONS
-───────────────────────────────────────── */
-function IconTrash() {
-  return (
-    <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  );
-}
-function IconChevronLeft() {
-  return (
-    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  );
-}
-function IconChevronRight() {
-  return (
-    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  );
-}
-function IconTrendUp() {
-  return (
-    <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
-      <path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M17 6h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-function IconTrendDown() {
-  return (
-    <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
-      <path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M17 18h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-function IconEmpty() {
-  return (
-    <svg width="52" height="52" fill="none" viewBox="0 0 24 24" opacity=".25">
-      <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-      <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M9 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
+const IconEmpty = () => (
+  <svg width="52" height="52" fill="none" viewBox="0 0 24 24" opacity=".25">
+    <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M9 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 /* ─────────────────────────────────────────
    HELPERS
 ───────────────────────────────────────── */
-function fmtBalance(n) {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-function fmtScore(n) {
-  return (n > 0 ? "+" : "") + n.toLocaleString();
-}
+const fmtBalance = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtScore = (n) => (n > 0 ? "+" : "") + n.toLocaleString();
 
 /* ─────────────────────────────────────────
    STAT CARD
 ───────────────────────────────────────── */
-function StatCard({ variant, records, score, icon }) {
-  var isProfit = variant === "profit";
+const StatCard = ({ variant, records, score, icon }) => {
+  const isProfit = variant === "profit";
   return (
-    <div className={"gh-stat-card " + (isProfit ? "profit" : "loss")}>
-      <div className="gh-stat-icon">{icon}</div>
-      <div className="gh-stat-content">
-        <div className="gh-stat-row">
-          <div className="gh-stat-block">
-            <span className="gh-stat-label">Total {isProfit ? "Profit" : "Loss"} Records</span>
-            <span className="gh-stat-value">{records.toLocaleString()}</span>
+    <div className={`relative rounded-2xl p-6 flex items-center gap-5 overflow-hidden shadow-lg transition-all duration-200 hover:scale-[1.01] ${
+      isProfit 
+        ? "bg-gradient-to-br from-[#0a1f12] to-[#0d2b1a] border border-green-500/30" 
+        : "bg-gradient-to-br from-[#1a0a0a] to-[#2a0d0d] border border-red-500/30"
+    }`}>
+      <div className={`absolute inset-0 pointer-events-none ${
+        isProfit ? "bg-[radial-gradient(ellipse_200px_150px_at_90%_50%,rgba(34,197,94,0.14),transparent)]" 
+                 : "bg-[radial-gradient(ellipse_200px_150px_at_90%_50%,rgba(239,68,68,0.12),transparent)]"
+      }`} />
+      
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+        isProfit 
+          ? "bg-green-500/15 border border-green-500/30 text-green-400" 
+          : "bg-red-500/15 border border-red-500/30 text-red-400"
+      }`}>
+        {icon}
+      </div>
+      
+      <div className="flex-1 relative z-10">
+        <div className="flex items-stretch gap-0">
+          <div className="flex-1 flex flex-col gap-1">
+            <span className={`text-[0.68rem] font-bold uppercase tracking-wide ${
+              isProfit ? "text-green-400/60" : "text-red-400/60"
+            }`}>
+              Total {isProfit ? "Profit" : "Loss"} Records
+            </span>
+            <span className={`text-[1.6rem] font-extrabold font-mono leading-none ${
+              isProfit ? "text-green-400" : "text-red-400"
+            }`}>
+              {records.toLocaleString()}
+            </span>
           </div>
-          <div className="gh-stat-divider" />
-          <div className="gh-stat-block">
-            <span className="gh-stat-label">Total {isProfit ? "Profit" : "Loss"} Score</span>
-            <span className="gh-stat-value score">{fmtScore(score)}</span>
+          <div className="w-px bg-white/10 mx-5 flex-shrink-0" />
+          <div className="flex-1 flex flex-col gap-1">
+            <span className={`text-[0.68rem] font-bold uppercase tracking-wide ${
+              isProfit ? "text-green-400/60" : "text-red-400/60"
+            }`}>
+              Total {isProfit ? "Profit" : "Loss"} Score
+            </span>
+            <span className={`text-[1.4rem] font-extrabold font-mono leading-none ${
+              isProfit ? "text-green-400" : "text-red-400"
+            }`}>
+              {fmtScore(score)}
+            </span>
           </div>
         </div>
       </div>
-      <div className="gh-stat-glow" />
     </div>
   );
-}
+};
 
 /* ─────────────────────────────────────────
    TYPE BADGE
 ───────────────────────────────────────── */
-function TypeBadge({ type }) {
-  return (
-    <span className={"gh-badge " + (type === "PROFIT" ? "profit" : "loss")}>
-      {type === "PROFIT" ? "▲ Profit" : "▼ Loss"}
-    </span>
-  );
-}
+const TypeBadge = ({ type }) => (
+  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.72rem] font-extrabold tracking-wide whitespace-nowrap ${
+    type === "PROFIT" 
+      ? "bg-green-500/15 border border-green-500/30 text-green-400" 
+      : "bg-red-500/15 border border-red-500/30 text-red-400"
+  }`}>
+    {type === "PROFIT" ? "▲ Profit" : "▼ Loss"}
+  </span>
+);
 
 /* ─────────────────────────────────────────
    CONFIRM MODAL
 ───────────────────────────────────────── */
-function ConfirmModal({ onConfirm, onCancel }) {
-  return (
-    <div className="gh-modal-overlay" onClick={onCancel}>
-      <div className="gh-modal" onClick={function(e) { e.stopPropagation(); }}>
-        <div className="gh-modal-icon">
-          <IconTrash />
-        </div>
-        <h3 className="gh-modal-title">Clear All History?</h3>
-        <p className="gh-modal-desc">
-          This will permanently delete all game history records. This action cannot be undone.
-        </p>
-        <div className="gh-modal-actions">
-          <button className="gh-modal-cancel" onClick={onCancel}>Cancel</button>
-          <button className="gh-modal-confirm" onClick={onConfirm}>Yes, Clear All</button>
-        </div>
+const ConfirmModal = ({ onConfirm, onCancel }) => (
+  <div className="fixed inset-0 bg-[#080c14]/90 backdrop-blur-md z-[500] flex items-center justify-center p-5 animate-[fadeIn_0.2s_ease]" onClick={onCancel}>
+    <div className="relative bg-[#101828] border border-red-500/30 rounded-2xl p-8 sm:p-9 max-w-[420px] w-full text-center shadow-2xl animate-[modalIn_0.3s_cubic-bezier(0.22,1,0.36,1)]" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-red-600 via-red-400 to-red-600 rounded-t-2xl" />
+      <div className="w-14 h-14 rounded-full bg-red-500/15 border-2 border-red-500/30 flex items-center justify-center mx-auto mb-5 text-red-400">
+        <IconTrash />
+      </div>
+      <h3 className="text-lg font-extrabold text-gray-100 mb-2">Clear All History?</h3>
+      <p className="text-sm text-gray-400 leading-relaxed mb-6">
+        This will permanently delete all game history records. This action cannot be undone.
+      </p>
+      <div className="flex gap-3 justify-center">
+        <button className="px-6 py-2.5 bg-[#162035] text-gray-400 border border-white/10 rounded-xl font-semibold text-sm hover:bg-[#1e2d47] hover:text-gray-100 transition-all" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="px-6 py-2.5 bg-gradient-to-br from-red-600 to-red-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-500/30 hover:brightness-110 hover:-translate-y-px transition-all" onClick={onConfirm}>
+          Yes, Clear All
+        </button>
       </div>
     </div>
-  );
-}
+  </div>
+);
 
 /* ─────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────── */
 export default function GameHistory() {
-  var [data,       setData]       = useState([]);
-  var [loading,    setLoading]    = useState(true);
-  var [page,       setPage]       = useState(0);
-  var [showModal,  setShowModal]  = useState(false);
-  var [filterType, setFilterType] = useState("ALL"); // ALL | PROFIT | LOSS
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [filterType, setFilterType] = useState("ALL");
 
-  /* Simulate loading */
-useEffect(function() {
-  setLoading(true);
-  var q = new Parse.Query(Parse.Object.extend("GamesHistory"));
-  q.descending("createdAt");
-  q.limit(2000);
-  q.find().then(function(results) {
-    var mapped = results.map(function(r) {
-      return {
-        objectId:       r.id,
-        createdAt:      new Date(r.get("createdAt")).toLocaleString("en-US", { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" }),
-        userName:       r.get("userName")       || r.get("username") || "—",
-        userUID:        r.get("userUID")        || r.get("uid")      || "—",
-        orderId:        r.get("orderId")        || r.get("orderID")  || "—",
-        mgId:           r.get("mgId")           || r.get("mgID")     || "—",
-        roundId:        r.get("roundId")        || r.get("roundID")  || "—",
-        score:          r.get("score")          || 0,
-        currentBalance: r.get("currentBalance") || r.get("balance")  || 0,
-        type:           r.get("type")           || (r.get("score") >= 0 ? "PROFIT" : "LOSS"),
-      };
+  const PER_PAGE = 10;
+
+  useEffect(() => {
+    setLoading(true);
+    const q = new Parse.Query(Parse.Object.extend("GamesHistory"));
+    q.descending("createdAt");
+    q.limit(2000);
+    q.find().then((results) => {
+      const mapped = results.map((r) => ({
+        objectId: r.id,
+        createdAt: new Date(r.get("createdAt")).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+        userName: r.get("userName") || r.get("username") || "—",
+        userUID: r.get("userUID") || r.get("uid") || "—",
+        orderId: r.get("orderId") || r.get("orderID") || "—",
+        mgId: r.get("mgId") || r.get("mgID") || "—",
+        roundId: r.get("roundId") || r.get("roundID") || "—",
+        score: r.get("score") || 0,
+        currentBalance: r.get("currentBalance") || r.get("balance") || 0,
+        type: r.get("type") || (r.get("score") >= 0 ? "PROFIT" : "LOSS"),
+      }));
+      setData(mapped);
+      setLoading(false);
+    }).catch((err) => {
+      console.error("Fetch error:", err);
+      setLoading(false);
     });
-    setData(mapped);
-    setLoading(false);
-  }).catch(function(err) {
-    console.error("Fetch error:", err);
-    setLoading(false);
-  });
-}, []);
+  }, []);
 
-  /* Reset page on filter change */
-  useEffect(function() { setPage(0); }, [filterType]);
+  useEffect(() => { setPage(0); }, [filterType]);
 
-  /* ── Stats ── */
-  var profitRows  = useMemo(function() { return data.filter(function(r) { return r.type === "PROFIT"; }); }, [data]);
-  var lossRows    = useMemo(function() { return data.filter(function(r) { return r.type === "LOSS"; }); }, [data]);
-  var profitScore = useMemo(function() { return profitRows.reduce(function(a,r) { return a+r.score; }, 0); }, [profitRows]);
-  var lossScore   = useMemo(function() { return lossRows.reduce(function(a,r) { return a+r.score; }, 0); }, [lossRows]);
+  const profitRows = useMemo(() => data.filter((r) => r.type === "PROFIT"), [data]);
+  const lossRows = useMemo(() => data.filter((r) => r.type === "LOSS"), [data]);
+  const profitScore = useMemo(() => profitRows.reduce((a, r) => a + r.score, 0), [profitRows]);
+  const lossScore = useMemo(() => lossRows.reduce((a, r) => a + r.score, 0), [lossRows]);
 
-  /* ── Filtered data ── */
-  var filtered = useMemo(function() {
+  const filtered = useMemo(() => {
     if (filterType === "ALL") return data;
-    return data.filter(function(r) { return r.type === filterType; });
+    return data.filter((r) => r.type === filterType);
   }, [data, filterType]);
 
-  /* ── Pagination ── */
-  var totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  var safePage   = Math.min(page, totalPages - 1);
-  var pageItems  = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
-  var startIdx   = filtered.length === 0 ? 0 : safePage * PER_PAGE + 1;
-  var endIdx     = Math.min((safePage + 1) * PER_PAGE, filtered.length);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageItems = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
+  const startIdx = filtered.length === 0 ? 0 : safePage * PER_PAGE + 1;
+  const endIdx = Math.min((safePage + 1) * PER_PAGE, filtered.length);
 
-  /* Smart page numbers */
-  var pageNums = useMemo(function() {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, function(_, i) { return i; });
-    var arr = [0];
+  const pageNums = useMemo(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i);
+    const arr = [0];
     if (safePage > 2) arr.push("…");
-    for (var i = Math.max(1, safePage-1); i <= Math.min(totalPages-2, safePage+1); i++) arr.push(i);
-    if (safePage < totalPages-3) arr.push("…");
+    for (let i = Math.max(1, safePage - 1); i <= Math.min(totalPages - 2, safePage + 1); i++) arr.push(i);
+    if (safePage < totalPages - 3) arr.push("…");
     arr.push(totalPages - 1);
     return arr;
   }, [totalPages, safePage]);
 
-  /* ── Handlers ── */
-  function handleClearAll() {
+  const handleClearAll = () => {
     setData([]);
     setPage(0);
     setShowModal(false);
-  }
+  };
 
-  /* ═══════════════════════════════════════
-     RENDER
-  ═══════════════════════════════════════ */
   return (
-    <div className="gh-page">
-      <div className="gh-topline" />
+    <div className="min-h-screen bg-[#080c14] font-sans text-gray-100 p-4 sm:p-6 md:p-8 relative overflow-x-hidden">
+      {/* Ambient background effects */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_800px_500px_at_15%_5%,rgba(59,130,246,0.05),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_600px_400px_at_85%_90%,rgba(34,197,94,0.04),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_400px_300px_at_50%_50%,rgba(239,68,68,0.025),transparent)]" />
+      </div>
 
-      {/* ── CONFIRM MODAL ── */}
-      {showModal && (
-        <ConfirmModal
-          onConfirm={handleClearAll}
-          onCancel={function() { setShowModal(false); }}
-        />
-      )}
+      {/* Top gradient strip */}
+      <div className="fixed top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500 via-green-500 via-red-500 to-transparent z-[200]" />
 
-      <div className="gh-wrap">
+      <div className="max-w-[1440px] mx-auto relative z-10">
+        {showModal && <ConfirmModal onConfirm={handleClearAll} onCancel={() => setShowModal(false)} />}
 
-        {/* ── BREADCRUMB + HEADER ── */}
-        <div className="gh-topbar">
-          <div className="gh-breadcrumb">
-            <span className="gh-bc-root">Game History</span>
-            <span className="gh-bc-sep">›</span>
-            <span className="gh-bc-current">Sud Game History</span>
+        {/* Header Section */}
+        <div className="flex items-center justify-between gap-3.5 mb-6 flex-wrap animate-[slideDown_0.4s_cubic-bezier(0.22,1,0.36,1)]">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-600 cursor-pointer hover:text-gray-400 transition-colors">
+              Game History
+            </span>
+            <span className="text-gray-700 text-sm">›</span>
+            <span className="text-xs font-bold text-gray-100">Sud Game History</span>
           </div>
           <button
-            className="gh-clear-btn"
-            type="button"
-            onClick={function() { setShowModal(true); }}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-br from-red-600 to-red-500 text-white rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-red-500/40 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:translate-y-0 whitespace-nowrap"
+            onClick={() => setShowModal(true)}
             disabled={data.length === 0 || loading}
           >
             <IconTrash />
@@ -286,129 +255,146 @@ useEffect(function() {
           </button>
         </div>
 
-        {/* ── STAT CARDS ── */}
-        <div className="gh-stats">
-          <StatCard
-            variant="profit"
-            records={profitRows.length}
-            score={profitScore}
-            icon={<IconTrendUp />}
-          />
-          <StatCard
-            variant="loss"
-            records={lossRows.length}
-            score={lossScore}
-            icon={<IconTrendDown />}
-          />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 animate-[slideUp_0.4s_cubic-bezier(0.22,1,0.36,1)_0.06s]">
+          <StatCard variant="profit" records={profitRows.length} score={profitScore} icon={<IconTrendUp />} />
+          <StatCard variant="loss" records={lossRows.length} score={lossScore} icon={<IconTrendDown />} />
         </div>
 
-        {/* ── FILTER PILLS ── */}
-        <div className="gh-filter-row">
-          <div className="gh-filters">
-            {["ALL","PROFIT","LOSS"].map(function(f) {
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  className={"gh-filter-pill" + (filterType === f ? " active " + f.toLowerCase() : "")}
-                  onClick={function() { setFilterType(f); }}
-                >
-                  {f === "ALL" ? "All Records" : f === "PROFIT" ? "▲ Profit Only" : "▼ Loss Only"}
-                </button>
-              );
-            })}
+        {/* Filter Row */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3 animate-[slideUp_0.4s_cubic-bezier(0.22,1,0.36,1)_0.1s]">
+          <div className="flex gap-2 flex-wrap">
+            {["ALL", "PROFIT", "LOSS"].map((f) => (
+              <button
+                key={f}
+                className={`px-4 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+                  filterType === f
+                    ? f === "ALL"
+                      ? "bg-blue-500/15 border-blue-500/30 text-blue-400"
+                      : f === "PROFIT"
+                      ? "bg-green-500/15 border-green-500/30 text-green-400"
+                      : "bg-red-500/15 border-red-500/30 text-red-400"
+                    : "border-white/10 bg-[#101828] text-gray-400 hover:border-white/20 hover:text-gray-300"
+                }`}
+                onClick={() => setFilterType(f)}
+              >
+                {f === "ALL" ? "All Records" : f === "PROFIT" ? "▲ Profit Only" : "▼ Loss Only"}
+              </button>
+            ))}
           </div>
-          <div className="gh-record-count">
-            {loading ? "Loading…" : (
-              <>Showing <strong>{startIdx}–{endIdx}</strong> of <strong>{filtered.length}</strong> records</>
+          <div className="text-xs text-gray-400 font-medium">
+            {loading ? (
+              "Loading…"
+            ) : (
+              <>
+                Showing <strong className="text-gray-300">{startIdx}–{endIdx}</strong> of{" "}
+                <strong className="text-gray-300">{filtered.length}</strong> records
+              </>
             )}
           </div>
         </div>
 
-        {/* ── MAIN CARD ── */}
-        <div className="gh-card">
-
-          {/* LOADING */}
+        {/* Main Card */}
+        <div className="bg-[#101828] border border-white/10 rounded-2xl overflow-hidden shadow-lg animate-[slideUp_0.4s_cubic-bezier(0.22,1,0.36,1)_0.14s]">
+          
+          {/* Loading State */}
           {loading && (
-            <div className="gh-loading">
-              <div className="gh-loading-dots">
-                <span /><span /><span />
+            <div className="flex flex-col items-center gap-4 py-20">
+              <div className="flex gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-bounce" />
               </div>
-              <p>Loading game history…</p>
+              <p className="text-sm text-gray-400 font-medium">Loading game history…</p>
             </div>
           )}
 
-          {/* EMPTY */}
+          {/* Empty State */}
           {!loading && filtered.length === 0 && (
-            <div className="gh-empty">
+            <div className="flex flex-col items-center gap-3 py-20 text-center">
               <IconEmpty />
-              <div className="gh-empty-title">No Data Found</div>
-              <div className="gh-empty-desc">
-                {data.length === 0
-                  ? "All history has been cleared."
-                  : "No records match the selected filter."}
+              <div className="text-base font-bold text-gray-300">No Data Found</div>
+              <div className="text-xs text-gray-400 max-w-[300px]">
+                {data.length === 0 ? "All history has been cleared." : "No records match the selected filter."}
               </div>
             </div>
           )}
 
-          {/* TABLE — desktop */}
+          {/* Data Table & Cards */}
           {!loading && filtered.length > 0 && (
             <>
-              <div className="gh-tbl-scroll">
-                <table className="gh-tbl">
-                  <thead>
+              {/* Desktop Table */}
+              <div className="overflow-x-auto hidden md:block">
+                <table className="w-full min-w-[1100px] border-collapse">
+                  <thead className="sticky top-0 z-10 bg-[#162035] border-b border-white/10">
                     <tr>
-                      <th>#</th>
-                      <th>Object ID</th>
-                      <th>Created At</th>
-                      <th>User Name</th>
-                      <th>User UID</th>
-                      <th>Order ID</th>
-                      <th>MG ID</th>
-                      <th>Round ID</th>
-                      <th>Score</th>
-                      <th>Current Balance</th>
-                      <th>Type</th>
+                      {["#", "Object ID", "Created At", "User Name", "User UID", "Order ID", "MG ID", "Round ID", "Score", "Current Balance", "Type"].map((header) => (
+                        <th key={header} className="px-3.5 py-3.5 text-left text-[0.65rem] font-extrabold uppercase tracking-wide text-gray-400 whitespace-nowrap first:pl-5 last:pr-5">
+                          {header}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {pageItems.map(function(row, idx) {
+                    {pageItems.map((row, idx) => {
+                      const isProfit = row.type === "PROFIT";
                       return (
-                        <tr key={row.objectId} className={row.type === "PROFIT" ? "row-profit" : "row-loss"}>
-                          <td><span className="gh-num">{startIdx + idx}</span></td>
-                          <td>
-                            <span className="gh-oid"
-                              title={"Click to copy: " + row.objectId}
-                              onClick={function() {
-                                if (navigator.clipboard) navigator.clipboard.writeText(row.objectId);
-                              }}>
+                        <tr
+                          key={row.objectId}
+                          className={`border-b border-white/5 transition-colors hover:bg-white/5 ${isProfit ? "hover:bg-green-500/5" : "hover:bg-red-500/5"}`}
+                        >
+                          <td className="px-3.5 py-3 text-left first:pl-4">
+                            <span className="text-xs font-semibold font-mono text-gray-600">{startIdx + idx}</span>
+                          </td>
+                          <td className="px-3.5 py-3 text-left">
+                            <span
+                              className="inline-block font-mono text-xs text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded cursor-pointer hover:bg-blue-400 hover:text-black transition-all whitespace-nowrap"
+                              title="Click to copy"
+                              onClick={() => navigator.clipboard?.writeText(row.objectId)}
+                            >
                               {row.objectId}
                             </span>
                           </td>
-                          <td><span className="gh-date">{row.createdAt}</span></td>
-                          <td>
-                            <div className="gh-user-cell">
-                              <div className="gh-avatar">
+                          <td className="px-3.5 py-3 text-left whitespace-nowrap">
+                            <span className="text-xs text-gray-400">{row.createdAt}</span>
+                          </td>
+                          <td className="px-3.5 py-3 text-left">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xs font-extrabold text-white flex-shrink-0">
                                 {row.userName.charAt(0)}
                               </div>
-                              <span className="gh-username">{row.userName}</span>
+                              <span className="text-sm font-semibold text-gray-100 whitespace-nowrap">{row.userName}</span>
                             </div>
                           </td>
-                          <td><span className="gh-uid">{row.userUID}</span></td>
-                          <td><span className="gh-id-tag">{row.orderId}</span></td>
-                          <td><span className="gh-id-tag">{row.mgId}</span></td>
-                          <td><span className="gh-id-tag">{row.roundId}</span></td>
-                          <td>
-                            <span className={"gh-score " + (row.score >= 0 ? "pos" : "neg")}>
-                              {fmtScore(row.score)}
+                          <td className="px-3.5 py-3 text-left">
+                            <span className="font-mono text-xs text-gray-400 bg-[#162035] border border-white/10 px-2 py-1 rounded whitespace-nowrap">
+                              {row.userUID}
                             </span>
                           </td>
-                          <td>
-                            <span className="gh-balance">
-                              {fmtBalance(row.currentBalance)}
+                          <td className="px-3.5 py-3 text-left">
+                            <span className="font-mono text-xs text-gray-300 bg-[#162035] border border-white/10 px-2 py-1 rounded whitespace-nowrap">
+                              {row.orderId}
                             </span>
                           </td>
-                          <td><TypeBadge type={row.type} /></td>
+                          <td className="px-3.5 py-3 text-left">
+                            <span className="font-mono text-xs text-gray-300 bg-[#162035] border border-white/10 px-2 py-1 rounded whitespace-nowrap">
+                              {row.mgId}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-3 text-left">
+                            <span className="font-mono text-xs text-gray-300 bg-[#162035] border border-white/10 px-2 py-1 rounded whitespace-nowrap">
+                              {row.roundId}
+                            </span>
+                          </td>
+                          <td className={`px-3.5 py-3 text-left font-mono text-sm font-bold whitespace-nowrap ${isProfit ? "text-green-400" : "text-red-400"}`}>
+                            {fmtScore(row.score)}
+                          </td>
+                          <td className="px-3.5 py-3 text-left font-mono text-sm font-semibold text-gray-100 whitespace-nowrap">
+                            {fmtBalance(row.currentBalance)}
+                          </td>
+                          <td className="px-3.5 py-3 text-left">
+                            <TypeBadge type={row.type} />
+                          </td>
                         </tr>
                       );
                     })}
@@ -416,55 +402,64 @@ useEffect(function() {
                 </table>
               </div>
 
-              {/* MOBILE CARDS */}
-              <div className="gh-mob-list">
-                {pageItems.map(function(row, idx) {
+              {/* Mobile Cards */}
+              <div className="flex flex-col gap-3 p-3.5 md:hidden">
+                {pageItems.map((row, idx) => {
+                  const isProfit = row.type === "PROFIT";
                   return (
-                    <div key={row.objectId}
-                      className={"gh-mob-card " + (row.type === "PROFIT" ? "profit" : "loss")}>
-                      {/* Card header */}
-                      <div className="gh-mob-card-hdr">
-                        <div className="gh-mob-avatar">{row.userName.charAt(0)}</div>
-                        <div className="gh-mob-hdr-info">
-                          <span className="gh-mob-username">{row.userName}</span>
-                          <span className="gh-mob-date">{row.createdAt}</span>
+                    <div
+                      key={row.objectId}
+                      className={`relative bg-[#162035] rounded-xl p-4 shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 ${
+                        isProfit ? "border border-green-500/30" : "border border-red-500/30"
+                      }`}
+                    >
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
+                        isProfit ? "bg-gradient-to-b from-green-500 to-green-400" : "bg-gradient-to-b from-red-500 to-red-400"
+                      }`} />
+                      
+                      {/* Card Header */}
+                      <div className="flex items-center gap-2.5 mb-3.5">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-extrabold text-white flex-shrink-0">
+                          {row.userName.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-gray-100 truncate">{row.userName}</div>
+                          <div className="text-[0.68rem] text-gray-500 mt-0.5">{row.createdAt}</div>
                         </div>
                         <TypeBadge type={row.type} />
                       </div>
 
-                      {/* Score highlight */}
-                      <div className="gh-mob-score-row">
-                        <div className="gh-mob-score-block">
-                          <span className="gh-mob-score-label">Score</span>
-                          <span className={"gh-score lg " + (row.score >= 0 ? "pos" : "neg")}>
+                      {/* Score Row */}
+                      <div className="flex gap-0 mb-3.5 bg-[#1e2d47] rounded-xl overflow-hidden border border-white/10">
+                        <div className="flex-1 p-3 flex flex-col gap-1 border-r border-white/10">
+                          <span className="text-[0.62rem] font-extrabold uppercase tracking-wide text-gray-500">Score</span>
+                          <span className={`text-xl font-bold font-mono ${isProfit ? "text-green-400" : "text-red-400"}`}>
                             {fmtScore(row.score)}
                           </span>
                         </div>
-                        <div className="gh-mob-score-block">
-                          <span className="gh-mob-score-label">Balance</span>
-                          <span className="gh-balance lg">{fmtBalance(row.currentBalance)}</span>
+                        <div className="flex-1 p-3 flex flex-col gap-1">
+                          <span className="text-[0.62rem] font-extrabold uppercase tracking-wide text-gray-500">Balance</span>
+                          <span className="text-xl font-bold font-mono text-blue-400">{fmtBalance(row.currentBalance)}</span>
                         </div>
                       </div>
 
-                      {/* Detail grid */}
-                      <div className="gh-mob-grid">
+                      {/* Detail Grid */}
+                      <div className="grid grid-cols-2 gap-2">
                         {[
-                          { label: "Object ID",    value: row.objectId },
-                          { label: "User UID",     value: row.userUID },
-                          { label: "Order ID",     value: row.orderId },
-                          { label: "MG ID",        value: row.mgId },
-                          { label: "Round ID",     value: row.roundId },
-                        ].map(function(f) {
-                          return (
-                            <div key={f.label} className="gh-mob-field">
-                              <span className="gh-mob-label">{f.label}</span>
-                              <span className="gh-mob-value">{f.value}</span>
-                            </div>
-                          );
-                        })}
-                        <div className="gh-mob-field">
-                          <span className="gh-mob-label">Row #</span>
-                          <span className="gh-mob-value">{startIdx + idx}</span>
+                          { label: "Object ID", value: row.objectId },
+                          { label: "User UID", value: row.userUID },
+                          { label: "Order ID", value: row.orderId },
+                          { label: "MG ID", value: row.mgId },
+                          { label: "Round ID", value: row.roundId },
+                        ].map((field) => (
+                          <div key={field.label} className="flex flex-col gap-0.5">
+                            <span className="text-[0.62rem] font-bold uppercase tracking-wide text-gray-500">{field.label}</span>
+                            <span className="text-xs text-gray-300 font-mono break-all">{field.value}</span>
+                          </div>
+                        ))}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[0.62rem] font-bold uppercase tracking-wide text-gray-500">Row #</span>
+                          <span className="text-xs text-gray-300 font-mono">{startIdx + idx}</span>
                         </div>
                       </div>
                     </div>
@@ -472,43 +467,79 @@ useEffect(function() {
                 })}
               </div>
 
-              {/* PAGINATION */}
-              <div className="gh-pagination">
-                <div className="gh-page-info">
-                  Page <strong>{safePage + 1}</strong> of <strong>{totalPages}</strong>
+              {/* Pagination */}
+              <div className="flex items-center justify-between p-4 border-t border-white/10 bg-[#162035] flex-wrap gap-2.5">
+                <div className="text-xs text-gray-400 font-medium">
+                  Page <strong className="text-gray-300">{safePage + 1}</strong> of <strong className="text-gray-300">{totalPages}</strong>
                 </div>
-                <div className="gh-page-btns">
-                  <button className="gh-pg-btn" type="button"
-                    onClick={function() { setPage(function(p) { return Math.max(0,p-1); }); }}
-                    disabled={safePage === 0}>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    className="min-w-[34px] h-[34px] px-2 rounded-lg border border-white/10 bg-[#1e2d47] text-gray-400 text-sm font-bold transition-all hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/10 disabled:opacity-25 disabled:cursor-not-allowed"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={safePage === 0}
+                  >
                     <IconChevronLeft />
                   </button>
-
-                  {pageNums.map(function(p, i) {
+                  
+                  {pageNums.map((p, i) => {
                     if (p === "…") {
-                      return <span key={"el"+i} className="gh-pg-ellipsis">…</span>;
+                      return <span key={`el-${i}`} className="min-w-[34px] h-[34px] flex items-center justify-center text-gray-500 text-sm font-bold">…</span>;
                     }
                     return (
-                      <button key={p} type="button"
-                        className={"gh-pg-btn num" + (safePage === p ? " active" : "")}
-                        onClick={function() { setPage(p); }}>
+                      <button
+                        key={p}
+                        className={`min-w-[34px] h-[34px] px-2 rounded-lg border text-sm font-bold transition-all ${
+                          safePage === p
+                            ? "bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30"
+                            : "border-white/10 bg-[#1e2d47] text-gray-400 hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/10"
+                        }`}
+                        onClick={() => setPage(p)}
+                      >
                         {p + 1}
                       </button>
                     );
                   })}
-
-                  <button className="gh-pg-btn" type="button"
-                    onClick={function() { setPage(function(p) { return Math.min(totalPages-1,p+1); }); }}
-                    disabled={safePage >= totalPages - 1}>
+                  
+                  <button
+                    className="min-w-[34px] h-[34px] px-2 rounded-lg border border-white/10 bg-[#1e2d47] text-gray-400 text-sm font-bold transition-all hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/10 disabled:opacity-25 disabled:cursor-not-allowed"
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={safePage >= totalPages - 1}
+                  >
                     <IconChevronRight />
                   </button>
                 </div>
               </div>
             </>
           )}
-
         </div>
       </div>
+
+      {/* Tailwind keyframes animation */}
+      <style jsx>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes modalIn {
+          from { opacity: 0; transform: scale(0.94) translateY(14px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); opacity: 0.5; }
+          50% { transform: translateY(-10px); opacity: 1; }
+        }
+        .animate-bounce {
+          animation: bounce 0.7s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
