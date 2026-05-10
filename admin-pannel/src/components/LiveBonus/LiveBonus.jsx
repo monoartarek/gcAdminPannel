@@ -36,6 +36,18 @@ const Icon = {
   ),
 };
 
+/* ─── saved value → display label mapping ─── */
+const TYPE_OPTIONS = [
+  { value: "audio", label: "Audioroom"  },
+  { value: "video", label: "Videoroom"  },
+  { value: "multi", label: "Multiroom"  },
+];
+
+const typeLabel = (savedValue) => {
+  const found = TYPE_OPTIONS.find((o) => o.value === savedValue);
+  return found ? found.label : savedValue || "—";
+};
+
 // ── Component ──────────────────────────────────────────────────────────────
 export default function LiveBonus() {
   const [type, setType]               = useState("");
@@ -47,11 +59,6 @@ export default function LiveBonus() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // ── fetchData: wrapped in useCallback so its reference is stable.
-  // This is the correct fix for the red squiggle ESLint warning:
-  //   "react-hooks/exhaustive-deps — fetchData changes on every render"
-  // With useCallback + empty deps [], fetchData is created once and never
-  // changes, so useEffect([fetchData]) is perfectly satisfied.
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -63,17 +70,14 @@ export default function LiveBonus() {
     } catch (error) {
       console.error("Error fetching bonuses:", error);
     } finally {
-      // finally ensures loading is always reset even if an error is thrown
       setLoading(false);
     }
-  }, []); // ← no external dependencies, so [] is correct here
+  }, []);
 
-  // ── No more red squiggle: fetchData is now a stable dep ───────────────
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // ── resetForm ─────────────────────────────────────────────────────────
   const resetForm = useCallback(() => {
     setType("");
     setDuration("");
@@ -81,7 +85,6 @@ export default function LiveBonus() {
     setEditId(null);
   }, []);
 
-  // ── handleSave ────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!type || !duration || !bonus) {
       alert("Please fill all fields");
@@ -97,6 +100,7 @@ export default function LiveBonus() {
       } else {
         obj = new BonusClass();
       }
+      /* saves the short code: "audio" | "video" | "multi" */
       obj.set("type",     type);
       obj.set("duration", parseInt(duration, 10));
       obj.set("bonus",    parseFloat(bonus));
@@ -111,16 +115,14 @@ export default function LiveBonus() {
     }
   }, [type, duration, bonus, editId, fetchData, resetForm]);
 
-  // ── handleEdit ────────────────────────────────────────────────────────
   const handleEdit = useCallback((item) => {
     setEditId(item.id);
-    setType(item.get("type"));
+    setType(item.get("type"));           /* reads "audio" / "video" / "multi" */
     setDuration(String(item.get("duration")));
     setBonus(String(item.get("bonus")));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // ── handleDelete ──────────────────────────────────────────────────────
   const handleDelete = useCallback(async (id) => {
     if (!window.confirm("Delete this bonus?")) return;
     setLoading(true);
@@ -138,78 +140,81 @@ export default function LiveBonus() {
     }
   }, [fetchData]);
 
-  // ── Derived stats ──────────────────────────────────────────────────────
+  /* ── Derived stats ── */
   const stats = useMemo(() => {
-    const live  = bonuses.filter((b) => b.get("type") === "Livestreaming").length;
-    const audio = bonuses.filter((b) => b.get("type") === "Audioroom").length;
+    const audio = bonuses.filter((b) => b.get("type") === "audio").length;
+    const video = bonuses.filter((b) => b.get("type") === "video").length;
+    const multi = bonuses.filter((b) => b.get("type") === "multi").length;
     const maxB  = bonuses.reduce((m, b) => Math.max(m, b.get("bonus") || 0), 0);
-    return { total: bonuses.length, live, audio, maxB };
+    return { total: bonuses.length, audio, video, multi, maxB };
   }, [bonuses]);
 
-  // ── Pagination ────────────────────────────────────────────────────────
+  /* ── Pagination ── */
   const totalPages   = Math.ceil(bonuses.length / itemsPerPage);
   const indexOfFirst = (currentPage - 1) * itemsPerPage;
   const currentItems = bonuses.slice(indexOfFirst, indexOfFirst + itemsPerPage);
   const startIdx     = bonuses.length === 0 ? 0 : indexOfFirst + 1;
   const endIdx       = Math.min(indexOfFirst + itemsPerPage, bonuses.length);
 
-  // ── Helpers ───────────────────────────────────────────────────────────
-  const typeBadge = (t) => {
-    const isLive = t === "Livestreaming";
+  /* ── Type badge — shows human label, colour per type ── */
+  const typeBadge = (savedValue) => {
+    const cls =
+      savedValue === "audio" ? "audio"
+      : savedValue === "video" ? "live"
+      : savedValue === "multi" ? "multi"
+      : "audio";
     return (
-      <span className={`type-badge ${isLive ? "live" : "audio"}`}>
+      <span className={`type-badge ${cls}`}>
         <span className="type-badge-dot" />
-        {t}
+        {typeLabel(savedValue)}
       </span>
     );
   };
 
   const fmtDate = (d) =>
     d
-      ? d.toLocaleDateString("en-US", {
-          month: "short",
-          day:   "numeric",
-          year:  "numeric",
-        })
+      ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
       : "—";
 
-  // ── Render ────────────────────────────────────────────────────────────
+  /* ── Render ── */
   return (
     <div className="livebonus-page">
       <div className="livebonus-inner">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="livebonus-header">
           <div className="livebonus-header-icon">{Icon.zap}</div>
           <div className="livebonus-header-text">
             <h2>Live Bonus Settings</h2>
-            <p>Manage streaming &amp; audioroom reward tiers</p>
+            <p>Manage streaming &amp; room reward tiers</p>
           </div>
         </div>
 
-        {/* ── Stats Row ── */}
+        {/* Stats Row */}
         <div className="stats-row">
           <div className="stat-card">
             <div className="stat-label">Total Configs</div>
             <div className="stat-value">{stats.total}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Livestreaming</div>
-            <div className="stat-value green">{stats.live}</div>
-          </div>
-          <div className="stat-card">
             <div className="stat-label">Audioroom</div>
             <div className="stat-value blue">{stats.audio}</div>
           </div>
           <div className="stat-card">
+            <div className="stat-label">Videoroom</div>
+            <div className="stat-value green">{stats.video}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Multiroom</div>
+            <div className="stat-value multi">{stats.multi}</div>
+          </div>
+          <div className="stat-card">
             <div className="stat-label">Highest Bonus</div>
-            <div className="stat-value green">
-              {stats.maxB > 0 ? stats.maxB : "—"}
-            </div>
+            <div className="stat-value green">{stats.maxB > 0 ? stats.maxB : "—"}</div>
           </div>
         </div>
 
-        {/* ── Form Card ── */}
+        {/* Form Card */}
         <div className="form-card">
           <div className="form-card-title">
             {editId ? "✎  Editing Entry" : "+ New Bonus Rule"}
@@ -223,7 +228,8 @@ export default function LiveBonus() {
           )}
 
           <div className="form-grid">
-            {/* Type */}
+
+            {/* Type — dropdown shows human label, saves short code */}
             <div className="field-group">
               <label htmlFor="lb-type">Type</label>
               <select
@@ -232,8 +238,11 @@ export default function LiveBonus() {
                 onChange={(e) => setType(e.target.value)}
               >
                 <option value="">Select type…</option>
-                <option value="Livestreaming">Livestreaming</option>
-                <option value="Audioroom">Audioroom</option>
+                {TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -266,22 +275,12 @@ export default function LiveBonus() {
 
             {/* Actions */}
             <div className="form-actions">
-              <button
-                className="btn-save"
-                onClick={handleSave}
-                disabled={loading}
-                type="button"
-              >
+              <button className="btn-save" onClick={handleSave} disabled={loading} type="button">
                 {Icon.save}
                 {loading ? "Saving…" : editId ? "Update" : "Save"}
               </button>
-
               {editId && (
-                <button
-                  className="btn-cancel"
-                  onClick={resetForm}
-                  type="button"
-                >
+                <button className="btn-cancel" onClick={resetForm} type="button">
                   {Icon.cancel} Cancel
                 </button>
               )}
@@ -289,7 +288,7 @@ export default function LiveBonus() {
           </div>
         </div>
 
-        {/* ── Table Card ── */}
+        {/* Table Card */}
         <div className="table-card">
           <div className="table-scroll">
             <table>
@@ -325,32 +324,12 @@ export default function LiveBonus() {
                       <td>
                         <span className="bonus-value">{item.get("bonus")}</span>
                       </td>
-                      <td>
-                        <span className="date-text">
-                          {fmtDate(item.get("createdAt"))}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="date-text">
-                          {fmtDate(item.get("updatedAt"))}
-                        </span>
-                      </td>
+                      <td><span className="date-text">{fmtDate(item.get("createdAt"))}</span></td>
+                      <td><span className="date-text">{fmtDate(item.get("updatedAt"))}</span></td>
                       <td>
                         <div className="action-group">
-                          <button
-                            className="btn-edit"
-                            onClick={() => handleEdit(item)}
-                            type="button"
-                          >
-                            {Icon.edit} <span>Edit</span>
-                          </button>
-                          <button
-                            className="btn-delete"
-                            onClick={() => handleDelete(item.id)}
-                            type="button"
-                          >
-                            {Icon.trash} <span>Delete</span>
-                          </button>
+                          <button className="btn-edit"   onClick={() => handleEdit(item)}    type="button">{Icon.edit}  <span>Edit</span></button>
+                          <button className="btn-delete" onClick={() => handleDelete(item.id)} type="button">{Icon.trash} <span>Delete</span></button>
                         </div>
                       </td>
                     </tr>
@@ -369,7 +348,7 @@ export default function LiveBonus() {
             </table>
           </div>
 
-          {/* ── Pagination ── */}
+          {/* Pagination */}
           {totalPages > 1 && (
             <div className="pagination-wrapper">
               <span className="pagination-info">

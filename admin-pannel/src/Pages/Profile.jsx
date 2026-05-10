@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { User, Lock, LogOut, ShieldCheck, Eye, EyeOff } from "lucide-react"; 
 import "./Profile.css";
 
+
 function Profile() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -51,7 +52,9 @@ function Profile() {
         <div className="pro-profile-header">
           <div className="pro-avatar-wrapper">
              <div className="pro-avatar-inner">
-                <img src="/logo.png" alt="Profile" className="pro-avatar-img" />
+
+                <img src="https://priyulive.com/logo.png" alt="Profile" className="pro-avatar-img" />
+                 
              </div>
              <div className="pro-online-badge"></div>
           </div>

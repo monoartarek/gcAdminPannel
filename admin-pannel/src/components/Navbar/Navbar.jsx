@@ -151,7 +151,7 @@ function Navbar({ onHamburgerClick }) {
               <p className="priyu-nav-role">{user.get("role") || "Admin"}</p>
             </div>
             <div className="priyu-nav-avatar-box">
-              <img src="/logo.png" alt="Profile" className="priyu-nav-avatar-img" />
+              <img src="https://priyulive.com/logo.png" alt="Profile" className="priyu-nav-avatar-img" />
               <div className="priyu-nav-status-dot"></div>
             </div>
           </div>

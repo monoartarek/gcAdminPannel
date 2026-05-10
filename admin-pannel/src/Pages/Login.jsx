@@ -157,7 +157,7 @@ function Login() {
       <div className="login-card-3d">
         <div className="login-header-3d">
           <div className="logo-container-3d">
-            <img src="/logo.png" alt="Logo" className="login-logo-3d" />
+            <img src="https://priyulive.com/logo.png" alt="Logo" className="login-logo-3d" />
           </div>
           <div className="illustration-placeholder-3d">
             <img 
