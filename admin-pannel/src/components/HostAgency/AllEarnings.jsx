@@ -1,595 +1,717 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import Parse from "../../parseConfig";
-import "./AllEarnings.css";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Parse from '../../parseConfig';
 import {
-  faRotateRight, faFileExport, faFileCsv,
-  faFilePdf, faFileExcel, faCopy,
-  faChevronDown, faChevronUp, faCoins,
-  faClock, faSearch, faSort, faSortUp, faSortDown,
-} from "@fortawesome/free-solid-svg-icons";
+  Users, UserCheck, Search, RefreshCw, Download,
+  Database, ChevronLeft, ChevronRight, AlertTriangle,
+  TrendingUp, Video, Mic, Gem, Hash, Building2,
+  ChevronsLeft, ChevronsRight, X, Loader2,
+  Shield, Clock
+} from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-/* ── helpers ── */
-function fmtNum(n) {
-  const num = Number(n);
-  if (!num || isNaN(num)) return "0";
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + "M";
-  if (num >= 1_000)     return (num / 1_000).toFixed(1) + "K";
-  return num.toLocaleString();
-}
-function fmtNumRaw(n) {
-  const num = Number(n);
-  return isNaN(num) ? 0 : num;
-}
-function fmtDur(mins) {
-  const m = Number(mins);
-  if (!m || isNaN(m)) return "0m";
-  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
-  return `${m}m`;
-}
-function getAvatarColor(str) {
-  const p = ["#6366f1","#f472b6","#34d399","#fbbf24","#f87171","#60a5fa","#a78bfa","#22d3ee"];
-  let h = 0;
-  for (let i = 0; i < (str || "").length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-  return p[Math.abs(h) % p.length];
-}
-function getInitial(str) { return (str || "?").charAt(0).toUpperCase(); }
-function copyText(text) {
-  navigator.clipboard?.writeText(text).catch(() => {
-    const el = document.createElement("textarea");
-    el.value = text; document.body.appendChild(el);
-    el.select(); document.execCommand("copy");
-    document.body.removeChild(el);
-  });
-}
+/* ─── constants ───────────────────────────────── */
+const PAGE_SIZE = 50;
 
-/* ════════════════════════════════════════════════════════
-   COMPONENT
-════════════════════════════════════════════════════════ */
-export default function AllEarnings() {
-  const [rows,        setRows]        = useState([]); // grouped by host_id
-  const [loading,     setLoading]     = useState(true);
-  const [toast,       setToast]       = useState(null);
-  const [animated,    setAnimated]    = useState(false);
-  const [search,      setSearch]      = useState("");
-  const [expandedId,  setExpandedId]  = useState(null);
-  const [sortCol,     setSortCol]     = useState("total_earning");
-  const [sortDir,     setSortDir]     = useState("desc");
-  const [exportOpen,  setExportOpen]  = useState(false);
-  const exportRef = useRef(null);
+/* ─── tiny helpers ────────────────────────────── */
+const fmtMin = (min = 0) => {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
 
-  const showToast = useCallback((msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  /* close export dropdown on outside click */
-  useEffect(() => {
-    const handler = e => {
-      if (exportRef.current && !exportRef.current.contains(e.target))
-        setExportOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  /* ── fetch AgencyHistory and group by host_id ── */
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setAnimated(false);
-    try {
-      const AgencyHistory = Parse.Object.extend("AgencyHistory");
-      let all = [], skip = 0;
-      while (true) {
-        const q = new Parse.Query(AgencyHistory);
-        q.limit(1000); q.skip(skip);
-        q.select([
-          "host_id", "agent_id", "agency_id", "admin_id",
-          "type", "earning", "bonus", "duration", "datetime",
-        ]);
-        const batch = await q.find({ useMasterKey: true });
-        if (!batch.length) break;
-        all = [...all, ...batch];
-        if (batch.length < 1000) break;
-        skip += 1000;
-      }
-
-      /* group by host_id */
-      const map = {};
-      all.forEach(r => {
-        const hid = r.get("host_id") || "Unknown";
-        if (!map[hid]) {
-          map[hid] = {
-            host_id:      hid,
-            agent_id:     r.get("agent_id")  || "—",
-            agency_id:    r.get("agency_id") || "—",
-            admin_id:     r.get("admin_id")  || "—",
-            records:      0,
-            total_earning:0,
-            total_bonus:  0,
-            total_duration:0,
-            by_type: {},   // { livestreaming: { earning, bonus, duration, count } }
-            latest_date:  null,
-          };
-        }
-        const g = map[hid];
-        g.records++;
-
-        const earn = Number(r.get("earning")  || 0);
-        const bon  = Number(r.get("bonus")    || 0);
-        const dur  = Number(r.get("duration") || 0);
-        const type = r.get("type") || "other";
-        const dt   = r.get("datetime");
-
-        g.total_earning  += earn;
-        g.total_bonus    += bon;
-        g.total_duration += dur;
-
-        if (!g.by_type[type]) g.by_type[type] = { earning: 0, bonus: 0, duration: 0, count: 0 };
-        g.by_type[type].earning  += earn;
-        g.by_type[type].bonus    += bon;
-        g.by_type[type].duration += dur;
-        g.by_type[type].count++;
-
-        if (dt && (!g.latest_date || new Date(dt) > new Date(g.latest_date)))
-          g.latest_date = dt;
-      });
-
-      setRows(Object.values(map));
-    } catch (err) {
-      showToast("Fetch failed: " + err.message, "error");
-    } finally {
-      setLoading(false);
-      setTimeout(() => setAnimated(true), 80);
-    }
-  }, [showToast]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  /* ── sort + filter ── */
-  const processed = useMemo(() => {
-    let list = [...rows];
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(r =>
-        r.host_id.toLowerCase().includes(q)   ||
-        r.agent_id.toLowerCase().includes(q)  ||
-        r.agency_id.toLowerCase().includes(q) ||
-        r.admin_id.toLowerCase().includes(q)
-      );
-    }
-    list.sort((a, b) => {
-      const av = a[sortCol] ?? 0;
-      const bv = b[sortCol] ?? 0;
-      return sortDir === "desc" ? bv - av : av - bv;
-    });
-    return list;
-  }, [rows, search, sortCol, sortDir]);
-
-  const handleSort = col => {
-    if (sortCol === col) setSortDir(d => d === "desc" ? "asc" : "desc");
-    else { setSortCol(col); setSortDir("desc"); }
-  };
-
-  const SortIcon = ({ col }) => {
-    if (sortCol !== col) return <FontAwesomeIcon icon={faSort} className="ae-sort-icon" />;
-    return <FontAwesomeIcon icon={sortDir === "desc" ? faSortDown : faSortUp} className="ae-sort-icon ae-sort-icon--active" />;
-  };
-
-  /* ── summary totals ── */
-  const totals = useMemo(() => ({
-    hosts:   processed.length,
-    earning: processed.reduce((s, r) => s + r.total_earning,  0),
-    bonus:   processed.reduce((s, r) => s + r.total_bonus,    0),
-    dur:     processed.reduce((s, r) => s + r.total_duration, 0),
-    records: processed.reduce((s, r) => s + r.records,        0),
-  }), [processed]);
-
-  const maxEarn = processed.length > 0
-    ? Math.max(...processed.map(r => r.total_earning))
-    : 1;
-
-  /* ══════════════════════════════════════════════════════
-     EXPORT FUNCTIONS
-  ══════════════════════════════════════════════════════ */
-
-  /* build flat export data */
-  const getExportData = () => processed.map((r, i) => ({
-    Rank:           i + 1,
-    Host_ID:        r.host_id,
-    Agent_ID:       r.agent_id,
-    Agency_ID:      r.agency_id,
-    Admin_ID:       r.admin_id,
-    Total_Earning:  fmtNumRaw(r.total_earning),
-    Total_Bonus:    fmtNumRaw(r.total_bonus),
-    Total_Duration: fmtNumRaw(r.total_duration),
-    Records:        r.records,
-    Latest_Date:    r.latest_date ? new Date(r.latest_date).toLocaleDateString("en-GB") : "—",
-    ...Object.fromEntries(
-      Object.entries(r.by_type).map(([t, v]) => [
-        `${t}_earning`, fmtNumRaw(v.earning),
-      ])
-    ),
-  }));
-
-  /* ── Copy as text ── */
-  const handleCopy = () => {
-    const data = getExportData();
-    const headers = Object.keys(data[0] || {}).join("\t");
-    const body    = data.map(r => Object.values(r).join("\t")).join("\n");
-    copyText(headers + "\n" + body);
-    showToast("Copied to clipboard!", "copy");
-    setExportOpen(false);
-  };
-
-  /* ── Export CSV ── */
-  const handleCSV = () => {
-    const data    = getExportData();
-    const headers = Object.keys(data[0] || {}).join(",");
-    const body    = data.map(r =>
-      Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
-    ).join("\n");
-    const blob = new Blob([headers + "\n" + body], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a"); a.href = url;
-    a.download = `earnings_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-    showToast("CSV downloaded!", "success");
-    setExportOpen(false);
-  };
-
-  /* ── Export Excel (XLSX via SheetJS CDN) ── */
-  const handleExcel = async () => {
-    try {
-      const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs");
-      const data = getExportData();
-      const ws   = XLSX.utils.json_to_sheet(data);
-      const wb   = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Earnings");
-      XLSX.writeFile(wb, `earnings_${Date.now()}.xlsx`);
-      showToast("Excel downloaded!", "success");
-    } catch {
-      /* fallback: CSV with .xlsx hint */
-      handleCSV();
-      showToast("Excel exported as CSV", "info");
-    }
-    setExportOpen(false);
-  };
-
-  /* ── Export PDF (basic HTML print) ── */
-  const handlePDF = () => {
-    const data  = getExportData();
-    const cols  = ["Rank","Host_ID","Agent_ID","Total_Earning","Total_Bonus","Total_Duration","Records"];
-    const thead = cols.map(c => `<th>${c.replace(/_/g," ")}</th>`).join("");
-    const tbody = data.map(r =>
-      `<tr>${cols.map(c => `<td>${r[c] ?? ""}</td>`).join("")}</tr>`
-    ).join("");
-    const html  = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-      <title>Earnings Report</title>
-      <style>
-        body{font-family:sans-serif;font-size:11px;padding:20px;}
-        h2{margin-bottom:12px;font-size:16px;}
-        table{border-collapse:collapse;width:100%;}
-        th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;}
-        th{background:#1a1a2e;color:#fff;}
-        tr:nth-child(even){background:#f9f9f9;}
-      </style></head><body>
-      <h2>Agency Earnings Report — ${new Date().toLocaleDateString()}</h2>
-      <p>Total Hosts: ${totals.hosts} | Total Earning: ${fmtNum(totals.earning)} | Total Bonus: ${fmtNum(totals.bonus)}</p>
-      <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
-      </body></html>`;
-    const win = window.open("", "_blank");
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
-    showToast("PDF print dialog opened!", "success");
-    setExportOpen(false);
-  };
-
-  /* ════════════ RENDER ════════════ */
+const Avatar = ({ name = '?' }) => {
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const palettes = [
+    'bg-sky-100 text-sky-700',
+    'bg-emerald-100 text-emerald-700',
+    'bg-violet-100 text-violet-700',
+    'bg-rose-100 text-rose-700',
+    'bg-amber-100 text-amber-700',
+    'bg-teal-100 text-teal-700',
+  ];
   return (
-    <div className="ae-root">
+    <span className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold shrink-0 ${palettes[name.charCodeAt(0) % palettes.length]}`}>
+      {initials}
+    </span>
+  );
+};
 
-      {/* Toast */}
-      {toast && (
-        <div className={`ae-toast ae-toast--${toast.type}`}>
-          <span className="ae-toast-dot" />{toast.msg}
-        </div>
-      )}
+const Badge = ({ children, variant = 'default' }) => {
+  const styles = {
+    default: 'bg-gray-100 text-gray-600',
+    blue:    'bg-sky-100 text-sky-700',
+    green:   'bg-emerald-100 text-emerald-700',
+    amber:   'bg-amber-100 text-amber-700',
+    violet:  'bg-violet-100 text-violet-700',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${styles[variant]}`}>
+      {children}
+    </span>
+  );
+};
 
-      {/* ── Header ── */}
-      <div className="ae-header">
-        <div className="ae-header-left">
-          <span className="ae-eyebrow">Agency Management</span>
-          <h1 className="ae-title">All Earnings</h1>
-          <span className="ae-subtitle">
-            {loading ? "Loading…"
-              : `${totals.hosts} hosts · ${totals.records.toLocaleString()} records · Total: ${fmtNum(totals.earning)}`}
-          </span>
-        </div>
-        <div className="ae-header-right">
-          {/* Export dropdown */}
-          <div className="ae-export-wrap" ref={exportRef}>
-            <button className="ae-export-btn" onClick={() => setExportOpen(o => !o)}
-              disabled={loading || !processed.length}>
-              <FontAwesomeIcon icon={faFileExport} />
-              Export
-              <FontAwesomeIcon icon={faChevronDown} className="ae-export-arrow" />
-            </button>
-            {exportOpen && (
-              <div className="ae-export-dropdown">
-                <button className="ae-export-opt" onClick={handleCopy}>
-                  <FontAwesomeIcon icon={faCopy} /> Copy to Clipboard
-                </button>
-                <button className="ae-export-opt ae-export-opt--csv" onClick={handleCSV}>
-                  <FontAwesomeIcon icon={faFileCsv} /> Download CSV
-                </button>
-                <button className="ae-export-opt ae-export-opt--excel" onClick={handleExcel}>
-                  <FontAwesomeIcon icon={faFileExcel} /> Download Excel
-                </button>
-                <button className="ae-export-opt ae-export-opt--pdf" onClick={handlePDF}>
-                  <FontAwesomeIcon icon={faFilePdf} /> Export PDF
-                </button>
-              </div>
-            )}
-          </div>
-          <button className="ae-refresh-btn" onClick={fetchData} disabled={loading}>
-            {loading ? <span className="ae-spin" /> : <FontAwesomeIcon icon={faRotateRight} />}
-          </button>
-        </div>
+const StatCard = ({ icon: Icon, label, value, loading, color }) => {
+  const colors = {
+    blue:    { bg: 'bg-sky-50 border-sky-100',    icon: 'bg-sky-100 text-sky-600',    val: 'text-sky-700'    },
+    green:   { bg: 'bg-emerald-50 border-emerald-100', icon: 'bg-emerald-100 text-emerald-600', val: 'text-emerald-700' },
+    violet:  { bg: 'bg-violet-50 border-violet-100', icon: 'bg-violet-100 text-violet-600', val: 'text-violet-700' },
+    amber:   { bg: 'bg-amber-50 border-amber-100',  icon: 'bg-amber-100 text-amber-600',  val: 'text-amber-700'  },
+  };
+  const c = colors[color] || colors.blue;
+  return (
+    <div className={`rounded-2xl border p-5 ${c.bg} flex items-center gap-4`}>
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${c.icon}`}>
+        <Icon size={20} />
       </div>
-
-      {/* ── Summary stat cards ── */}
-      {!loading && (
-        <div className="ae-stat-row">
-          {[
-            { label: "Total Hosts",    val: totals.hosts.toLocaleString(),   color: "#818cf8" },
-            { label: "Total Records",  val: totals.records.toLocaleString(), color: "#60a5fa" },
-            { label: "Total Earning",  val: fmtNum(totals.earning),          color: "#fbbf24" },
-            { label: "Total Bonus",    val: fmtNum(totals.bonus),            color: "#34d399" },
-            { label: "Total Duration", val: fmtDur(totals.dur),              color: "#2dd4bf" },
-          ].map((s, i) => (
-            <div key={i} className="ae-stat-card" style={{ animationDelay: `${i * 55}ms` }}>
-              <span className="ae-stat-val" style={{ color: s.color }}>{s.val}</span>
-              <span className="ae-stat-label">{s.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Search ── */}
-      <div className="ae-toolbar">
-        <div className="ae-search-wrap">
-          <FontAwesomeIcon icon={faSearch} className="ae-search-icon" />
-          <input className="ae-search"
-            placeholder="Search by host ID, agent ID, agency ID or admin ID…"
-            value={search}
-            onChange={e => setSearch(e.target.value)} />
-          {search && (
-            <button className="ae-search-clear" onClick={() => setSearch("")}>✕</button>
-          )}
-        </div>
-        {!loading && (
-          <span className="ae-result-count">
-            {processed.length} host{processed.length !== 1 ? "s" : ""}
-          </span>
-        )}
+      <div>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
+        {loading
+          ? <div className="w-12 h-6 bg-gray-200 animate-pulse rounded mt-1" />
+          : <p className={`text-2xl font-bold mt-0.5 ${c.val}`}>{value?.toLocaleString() ?? '—'}</p>
+        }
       </div>
-
-      {/* ── Content ── */}
-      {loading ? (
-        <div className="ae-loading">
-          <div className="ae-loading-ring" />
-          <div className="ae-loading-ring ae-loading-ring--2" />
-          <p>Fetching and grouping earnings…</p>
-        </div>
-      ) : processed.length === 0 ? (
-        <div className="ae-empty">
-          <div className="ae-empty-icon">◎</div>
-          <p>No earnings data found</p>
-          <button className="ae-empty-reset" onClick={() => setSearch("")}>Clear search</button>
-        </div>
-      ) : (
-        <div className={`ae-table-wrap ${animated ? "in" : ""}`}>
-
-          {/* ── Table header ── */}
-          <div className="ae-thead">
-            <div className="ae-th" style={{ width: 52 }}>Rank</div>
-            <div className="ae-th ae-th--grow">Host ID</div>
-            <div className="ae-th ae-th--id ae-th--hide-sm">Agent ID</div>
-            <div className="ae-th ae-th--id ae-th--hide-md">Agency ID</div>
-            <div className="ae-th ae-th--num ae-th--sortable" onClick={() => handleSort("records")}>
-              Records <SortIcon col="records" />
-            </div>
-            <div className="ae-th ae-th--num ae-th--sortable" onClick={() => handleSort("total_earning")}>
-              Earning <SortIcon col="total_earning" />
-            </div>
-            <div className="ae-th ae-th--num ae-th--sortable ae-th--hide-md" onClick={() => handleSort("total_bonus")}>
-              Bonus <SortIcon col="total_bonus" />
-            </div>
-            <div className="ae-th ae-th--num ae-th--sortable ae-th--hide-md" onClick={() => handleSort("total_duration")}>
-              Duration <SortIcon col="total_duration" />
-            </div>
-            <div className="ae-th" style={{ width: 36 }} />
-          </div>
-
-          {/* ── Rows ── */}
-          {processed.map((r, i) => {
-            const color    = getAvatarColor(r.host_id);
-            const barPct   = maxEarn > 0 ? (r.total_earning / maxEarn) * 100 : 0;
-            const isExpand = expandedId === r.host_id;
-            const types    = Object.entries(r.by_type);
-
-            return (
-              <div key={r.host_id}
-                className={`ae-row-block ${animated ? "in" : ""}`}
-                style={{ animationDelay: `${Math.min(i * 28, 700)}ms` }}>
-
-                {/* Main row */}
-                <div className={`ae-row ${isExpand ? "ae-row--open" : ""}`}
-                  onClick={() => setExpandedId(isExpand ? null : r.host_id)}>
-
-                  {/* Rank + avatar */}
-                  <div className="ae-rank-cell">
-                    <span className="ae-rank">{i + 1}</span>
-                    <div className="ae-av" style={{ background: color }}>
-                      {getInitial(r.host_id)}
-                    </div>
-                  </div>
-
-                  {/* Host ID + bar */}
-                  <div className="ae-cell ae-cell--grow">
-                    <span className="ae-host-id" title={r.host_id}>{r.host_id}</span>
-                    <div className="ae-bar-track">
-                      <div className="ae-bar-fill" style={{
-                        width: animated ? `${Math.max(barPct, 0.5)}%` : "0%",
-                        background: `linear-gradient(90deg, ${color}, ${color}99)`,
-                        transitionDelay: `${Math.min(i * 28, 700)}ms`,
-                      }} />
-                    </div>
-                  </div>
-
-                  {/* Agent ID */}
-                  <div className="ae-cell ae-cell--id ae-cell--hide-sm">
-                    <span className="ae-id-val">{r.agent_id}</span>
-                  </div>
-
-                  {/* Agency ID */}
-                  <div className="ae-cell ae-cell--id ae-cell--hide-md">
-                    <span className="ae-id-val">{r.agency_id}</span>
-                  </div>
-
-                  {/* Records */}
-                  <div className="ae-cell ae-cell--num">
-                    <span className="ae-val ae-val--rec">{r.records}</span>
-                  </div>
-
-                  {/* Earning */}
-                  <div className="ae-cell ae-cell--num">
-                    <span className="ae-val ae-val--earn">{fmtNum(r.total_earning)}</span>
-                  </div>
-
-                  {/* Bonus */}
-                  <div className="ae-cell ae-cell--num ae-cell--hide-md">
-                    <span className="ae-val ae-val--bonus">{fmtNum(r.total_bonus)}</span>
-                  </div>
-
-                  {/* Duration */}
-                  <div className="ae-cell ae-cell--num ae-cell--hide-md">
-                    <span className="ae-val ae-val--dur">{fmtDur(r.total_duration)}</span>
-                  </div>
-
-                  {/* Expand */}
-                  <div className="ae-cell ae-cell--expand">
-                    <FontAwesomeIcon icon={isExpand ? faChevronUp : faChevronDown} />
-                  </div>
-                </div>
-
-                {/* ── Expanded detail ── */}
-                {isExpand && (
-                  <div className="ae-detail">
-
-                    {/* IDs row */}
-                    <div className="ae-detail-ids">
-                      {[
-                        { label: "Host ID",   val: r.host_id   },
-                        { label: "Agent ID",  val: r.agent_id  },
-                        { label: "Agency ID", val: r.agency_id },
-                        { label: "Admin ID",  val: r.admin_id  },
-                      ].map(id => (
-                        <div key={id.label} className="ae-id-chip"
-                          onClick={() => { copyText(id.val); showToast(`Copied: ${id.val}`, "copy"); }}
-                          title="Click to copy">
-                          <span className="ae-id-chip-label">{id.label}</span>
-                          <span className="ae-id-chip-val">{id.val}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Summary cards */}
-                    <div className="ae-detail-summary">
-                      {[
-                        { label: "Total Earning",  val: fmtNum(r.total_earning),  color: "#fbbf24", icon: faCoins },
-                        { label: "Total Bonus",    val: fmtNum(r.total_bonus),    color: "#34d399", icon: faCoins },
-                        { label: "Total Duration", val: fmtDur(r.total_duration), color: "#2dd4bf", icon: faClock },
-                        { label: "Total Records",  val: r.records,                color: "#818cf8", icon: faCoins },
-                      ].map(s => (
-                        <div key={s.label} className="ae-detail-kpi">
-                          <FontAwesomeIcon icon={s.icon} style={{ color: s.color, opacity: 0.6 }} />
-                          <div>
-                            <span className="ae-detail-kpi-val" style={{ color: s.color }}>{s.val}</span>
-                            <span className="ae-detail-kpi-label">{s.label}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* By type breakdown */}
-                    {types.length > 0 && (
-                      <div className="ae-detail-types">
-                        <div className="ae-detail-types-title">Breakdown by Type</div>
-                        <div className="ae-type-grid">
-                          {types.map(([type, v]) => (
-                            <div key={type} className="ae-type-card">
-                              <div className="ae-type-name">{type}</div>
-                              <div className="ae-type-stats">
-                                <div className="ae-type-stat">
-                                  <span className="ae-type-stat-label">Earning</span>
-                                  <span className="ae-type-stat-val ae-type-stat-val--earn">{fmtNum(v.earning)}</span>
-                                </div>
-                                <div className="ae-type-stat">
-                                  <span className="ae-type-stat-label">Bonus</span>
-                                  <span className="ae-type-stat-val ae-type-stat-val--bonus">{fmtNum(v.bonus)}</span>
-                                </div>
-                                <div className="ae-type-stat">
-                                  <span className="ae-type-stat-label">Duration</span>
-                                  <span className="ae-type-stat-val ae-type-stat-val--dur">{fmtDur(v.duration)}</span>
-                                </div>
-                                <div className="ae-type-stat">
-                                  <span className="ae-type-stat-label">Count</span>
-                                  <span className="ae-type-stat-val">{v.count}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                )}
-
-              </div>
-            );
-          })}
-
-          {/* ── Footer totals row ── */}
-          <div className="ae-tfoot">
-            <div style={{ width: 52, flexShrink: 0 }} />
-            <div className="ae-tf-cell ae-tf-cell--grow">
-              <span className="ae-tf-label">Grand Total ({processed.length} hosts)</span>
-            </div>
-            <div className="ae-tf-cell ae-tf-cell--hide-sm" />
-            <div className="ae-tf-cell ae-tf-cell--hide-md" />
-            <div className="ae-tf-cell ae-tf-cell--num">
-              <span className="ae-tf-val">{totals.records}</span>
-            </div>
-            <div className="ae-tf-cell ae-tf-cell--num">
-              <span className="ae-tf-val ae-tf-val--earn">{fmtNum(totals.earning)}</span>
-            </div>
-            <div className="ae-tf-cell ae-tf-cell--num ae-tf-cell--hide-md">
-              <span className="ae-tf-val ae-tf-val--bonus">{fmtNum(totals.bonus)}</span>
-            </div>
-            <div className="ae-tf-cell ae-tf-cell--num ae-tf-cell--hide-md">
-              <span className="ae-tf-val ae-tf-val--dur">{fmtDur(totals.dur)}</span>
-            </div>
-            <div style={{ width: 36, flexShrink: 0 }} />
-          </div>
-
-        </div>
-      )}
-
     </div>
   );
-}
+};
+
+/* ─── Toast ───────────────────────────────────── */
+const Toast = ({ msg, type, onDone }) => {
+  useEffect(() => { const t = setTimeout(onDone, 3200); return () => clearTimeout(t); }, [onDone]);
+  const base = 'fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-sm font-medium';
+  const styles = { success: 'bg-emerald-600 text-white', error: 'bg-red-600 text-white', info: 'bg-gray-900 text-white' };
+  return (
+    <div className={`${base} ${styles[type] || styles.info}`} style={{ animation: 'fadeUp .2s ease-out' }}>
+      {type === 'success' && <Shield size={15} className="shrink-0" />}
+      {type === 'error'   && <AlertTriangle size={15} className="shrink-0" />}
+      {msg}
+    </div>
+  );
+};
+
+/* ─── Confirm Modal ───────────────────────────── */
+const ConfirmModal = ({ title, desc, onConfirm, onCancel, loading }) => (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+      <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+        <AlertTriangle size={22} className="text-amber-600" />
+      </div>
+      <h3 className="text-base font-semibold text-gray-900 text-center mb-1">{title}</h3>
+      <p className="text-sm text-gray-500 text-center mb-6">{desc}</p>
+      <div className="flex gap-3">
+        <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+          Cancel
+        </button>
+        <button onClick={onConfirm} disabled={loading} className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition disabled:opacity-60 flex items-center justify-center gap-2">
+          {loading ? <Loader2 size={15} className="animate-spin" /> : null}
+          {loading ? 'Processing…' : 'Confirm'}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─── Mobile Card ─────────────────────────────── */
+const HostCard = ({ row }) => (
+  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+    <div className="flex items-center gap-3">
+      <Avatar name={row.name} />
+      <div className="min-w-0">
+        <p className="font-semibold text-gray-900 truncate">{row.name}</p>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <code className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">#{row.uid}</code>
+          <Badge variant="blue">{row.agencyName || 'No Agency'}</Badge>
+        </div>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-2 gap-2 text-xs">
+      <Metric icon={Video}  label="Video Earn" value={row.videoBoardEarning ?? '—'} />
+      <Metric icon={Clock}  label="Video Dur"  value={fmtMin(row.videoBoardDuration)} />
+      <Metric icon={Mic}    label="Audio Earn" value={row.audioBoardEarning ?? '—'} />
+      <Metric icon={Clock}  label="Audio Dur"  value={fmtMin(row.audioBoardDuration)} />
+      <Metric icon={TrendingUp} label="Board Total" value={row.totalEarning ?? '—'} accent="violet" />
+      <Metric icon={Gem}    label="User Total" value={row.totalUserEarning ?? '—'} accent="emerald" />
+    </div>
+
+    <div className="flex items-center justify-between pt-1 border-t border-gray-50">
+      <span className="text-[11px] text-gray-400">Agency Owner UID</span>
+      <code className="text-[11px] font-mono text-gray-600">{row.agencyOwnerId || '—'}</code>
+    </div>
+    <div className="flex items-center justify-between pt-1 border-t border-gray-50">
+      <span className="text-[11px] text-gray-400">Object ID</span>
+      <code className="text-[11px] font-mono text-gray-500 truncate max-w-[180px]">{row.objectId || '—'}</code>
+    </div>
+  </div>
+);
+
+const Metric = ({ icon: Icon, label, value, accent }) => {
+  const accents = { violet: 'text-violet-600', emerald: 'text-emerald-600' };
+  return (
+    <div className="bg-gray-50 rounded-xl p-2.5">
+      <div className="flex items-center gap-1 text-gray-400 mb-1">
+        <Icon size={11} />
+        <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <p className={`font-bold text-sm ${accents[accent] || 'text-gray-800'}`}>{value}</p>
+    </div>
+  );
+};
+
+/* ─── Pagination ──────────────────────────────── */
+const Pagination = ({ page, totalPages, onChange, totalCount, pageSize }) => {
+  const start = (page - 1) * pageSize + 1;
+  const end   = Math.min(page * pageSize, totalCount);
+
+  const pages = [];
+  const delta = 2;
+  for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
+    pages.push(i);
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-gray-100">
+      <p className="text-xs text-gray-400 order-2 sm:order-1">
+        Showing <span className="font-medium text-gray-700">{start}–{end}</span> of <span className="font-medium text-gray-700">{totalCount.toLocaleString()}</span> records
+      </p>
+      <div className="flex items-center gap-1 order-1 sm:order-2">
+        <PgBtn onClick={() => onChange(1)}          disabled={page === 1}          icon={ChevronsLeft} />
+        <PgBtn onClick={() => onChange(page - 1)}   disabled={page === 1}          icon={ChevronLeft} />
+        {pages[0] > 1 && <span className="px-2 text-gray-400 text-sm">…</span>}
+        {pages.map(p => (
+          <button
+            key={p}
+            onClick={() => onChange(p)}
+            className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${
+              p === page
+                ? 'bg-sky-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+        {pages[pages.length - 1] < totalPages && <span className="px-2 text-gray-400 text-sm">…</span>}
+        <PgBtn onClick={() => onChange(page + 1)}   disabled={page === totalPages} icon={ChevronRight} />
+        <PgBtn onClick={() => onChange(totalPages)} disabled={page === totalPages} icon={ChevronsRight} />
+      </div>
+    </div>
+  );
+};
+
+const PgBtn = ({ onClick, disabled, icon: Icon }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+  >
+    <Icon size={14} />
+  </button>
+);
+
+/* ═══════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════ */
+const AllHosts = () => {
+  /* state */
+  const [rows,        setRows]        = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [page,        setPage]        = useState(1);
+  const [totalCount,  setTotalCount]  = useState(0);
+  const [search,      setSearch]      = useState('');
+  const [debouncedQ,  setDebouncedQ]  = useState('');
+  const [stats,       setStats]       = useState({ totalHosts: 0, totalAgents: 0 });
+  const [toast,       setToast]       = useState(null);
+  const [modal,       setModal]       = useState(null); // { type: 'reset'|'backup' }
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const searchRef = useRef();
+
+  /* debounce search */
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedQ(search); setPage(1); }, 420);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  /* ── build search sub-query (reused by fetchPage + exportPDF) ── */
+  const buildSearchQuery = useCallback((q) => {
+    if (!q || !q.trim()) return null;
+    const trimQ = q.trim();
+    const uidNum = parseInt(trimQ, 10);
+    if (!isNaN(uidNum)) {
+      const nameQ = new Parse.Query('_User');
+      nameQ.matches('name', trimQ, 'i');
+      const uidQ = new Parse.Query('_User');
+      uidQ.equalTo('uid', uidNum);
+      return Parse.Query.or(nameQ, uidQ);
+    }
+    const nameQ = new Parse.Query('_User');
+    nameQ.matches('name', trimQ, 'i');
+    return nameQ;
+  }, []);
+
+  /* ── fetch one page ───────────────────────── */
+  const fetchPage = useCallback(async (pg, q) => {
+    setLoading(true);
+    try {
+      const skip = (pg - 1) * PAGE_SIZE;
+
+      // Build base query config (shared for count + data)
+      const buildBase = () => {
+        const qry = new Parse.Query('AgencyMember');
+        qry.descending('createdAt');
+        qry.include('host');
+        qry.include('agent');
+        const sub = buildSearchQuery(q);
+        if (sub) qry.matchesQuery('host', sub);
+        return qry;
+      };
+
+      // Run count + data in parallel (two queries, SDK-compatible)
+      const countQ = buildBase();
+      const dataQ  = buildBase();
+      dataQ.limit(PAGE_SIZE);
+      dataQ.skip(skip);
+
+      const [count, results] = await Promise.all([
+        countQ.count({ useMasterKey: true }),
+        dataQ.find({ useMasterKey: true }),
+      ]);
+
+      setTotalCount(count ?? 0);
+
+      const mapped = results.map(obj => {
+        const host  = obj.get ? obj.get('host')  : null;
+        const agent = obj.get ? obj.get('agent') : null;
+        const vDay  = obj.get?.('livestream_duration_day')  ?? 0;
+        const aDDay = obj.get?.('audio_duration_day') ?? 0;
+        return {
+          objectId:          obj.id || obj.getObjectId?.() || Math.random().toString(36),
+          uid:               host?.get?.('uid')          ?? '—',
+          name:              host?.get?.('name')         ?? 'Unknown',
+          agencyName:        agent?.get?.('agency_name') ?? '—',
+          agencyOwnerId:     agent?.get?.('uid')         ?? '—',
+          videoBoardEarning: obj.get?.('livestreaming_earning')    ?? 0,
+          videoBoardDuration:(obj.get?.('livestream_duration')     ?? 0) + vDay * 60,
+          audioBoardEarning: obj.get?.('audio_earning')            ?? 0,
+          audioBoardDuration:(obj.get?.('audio_duration')          ?? 0) + aDDay * 60,
+          totalEarning:      obj.get?.('total_points_earnings')    ?? 0,
+          totalUserEarning:  host?.get?.('diamonds')               ?? 0,
+          role:              host?.get?.('agency_role')            ?? 'agency_client',
+        };
+      });
+
+      setRows(mapped);
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to load data: ' + e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [buildSearchQuery]);
+
+  /* ── fetch stats — mirrors PHP logic exactly ─ */
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      // Total Hosts = distinct hosts in AgencyMember where agency_role = 'agency_client'
+      // Total Agents = distinct agent pointers in AgencyMember
+      // We fetch all AgencyMember rows (host + agent included) and deduplicate by UID
+      // — exactly what the PHP foreach loop did with $totalHosts[$uid] = true
+      const q = new Parse.Query('AgencyMember');
+      q.include('host');
+      q.include('agent');
+      q.limit(5000);
+
+      const all = await q.find({ useMasterKey: true });
+
+      const hostUIDs  = new Set();
+      const agentUIDs = new Set();
+
+      all.forEach(m => {
+        const host  = m.get?.('host');
+        const agent = m.get?.('agent');
+        const role  = host?.get?.('agency_role') ?? 'agency_client';
+
+        if (host) {
+          const uid = host.get?.('uid');
+          if (role === 'agency_client' && uid != null) hostUIDs.add(uid);
+          if (role === 'agent'         && uid != null) agentUIDs.add(uid);
+        }
+        // also count the agent pointer owner as an agent
+        if (agent) {
+          const aUid = agent.get?.('uid');
+          if (aUid != null) agentUIDs.add(aUid);
+        }
+      });
+
+      setStats({ totalHosts: hostUIDs.size, totalAgents: agentUIDs.size });
+    } catch (e) {
+      console.error('fetchStats error:', e);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchPage(page, debouncedQ); }, [fetchPage, page, debouncedQ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  /* ── toast ────────────────────────────────── */
+  const showToast = (msg, type = 'info') => setToast({ msg, type });
+
+  /* ── reset earnings ───────────────────────── */
+  const doReset = async () => {
+    setModalLoading(true);
+    try {
+      const result = await Parse.Cloud.run('resetEarningsAndDelete', {});
+      if (result?.success) {
+        showToast('Earnings reset and data deleted successfully!', 'success');
+        fetchPage(1, debouncedQ);
+        fetchStats();
+      } else {
+        showToast('Error: ' + (result?.error || 'Unknown error'), 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      setModalLoading(false);
+      setModal(null);
+    }
+  };
+
+  /* ── backup ───────────────────────────────── */
+  const doBackup = async () => {
+    setModalLoading(true);
+    try {
+      const result = await Parse.Cloud.run('backupEarningsData', {});
+      if (result?.success) {
+        showToast('Data backed up successfully!', 'success');
+      } else {
+        showToast('Error: ' + (result?.error || 'Unknown error'), 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      setModalLoading(false);
+      setModal(null);
+    }
+  };
+
+  /* ── export PDF ───────────────────────────── */
+  const exportPDF = async () => {
+    showToast('Generating PDF, please wait…', 'info');
+    try {
+      /* fetch maximum 100 records for PDF */
+      const allQ = new Parse.Query('AgencyMember');
+      allQ.descending('createdAt');
+      allQ.include('host');
+      allQ.include('agent');
+      allQ.limit(100);
+      const pdfSub = buildSearchQuery(debouncedQ);
+      if (pdfSub) allQ.matchesQuery('host', pdfSub);
+      const all = await allQ.find({ useMasterKey: true });
+
+      const doc = new jsPDF('l', 'mm', 'a4');
+      doc.setFontSize(16);
+      doc.text('All Hosts Report', 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}  |  Showing: ${all.length} of max 100 records`, 14, 23);
+
+      autoTable(doc, {
+        head: [['Object ID', 'UID', 'Name', 'Agency', 'Owner UID', 'Video Earn', 'Video Dur', 'Audio Earn', 'Audio Dur', 'Board Total', 'User Total']],
+        body: all.map(obj => {
+          const h = obj.get?.('host');
+          const a = obj.get?.('agent');
+          const vDay = obj.get?.('livestream_duration_day') ?? 0;
+          const aDDay = obj.get?.('audio_duration_day') ?? 0;
+          return [
+            obj.id || obj.getObjectId?.() || '—',
+            h?.get?.('uid') ?? '—',
+            h?.get?.('name') ?? '—',
+            a?.get?.('agency_name') ?? '—',
+            a?.get?.('uid') ?? '—',
+            obj.get?.('livestreaming_earning') ?? 0,
+            fmtMin((obj.get?.('livestream_duration') ?? 0) + vDay * 60),
+            obj.get?.('audio_earning') ?? 0,
+            fmtMin((obj.get?.('audio_duration') ?? 0) + aDDay * 60),
+            obj.get?.('total_points_earnings') ?? 0,
+            h?.get?.('diamonds') ?? 0,
+          ];
+        }),
+        startY: 28,
+        theme: 'striped',
+        headStyles: { fillColor: [2, 132, 199] },
+        styles: { fontSize: 8 },
+      });
+
+      doc.save('All_Hosts_Report.pdf');
+      showToast('PDF exported!', 'success');
+    } catch (e) {
+      showToast('PDF failed: ' + e.message, 'error');
+    }
+  };
+
+  /* ─────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────── */
+  return (
+    <div className="min-h-screen bg-slate-50">
+
+      {/* Toast */}
+      {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+
+      {/* Confirm Modal */}
+      {modal?.type === 'reset' && (
+        <ConfirmModal
+          title="Reset All Earnings?"
+          desc="This will permanently delete all earnings data and reset values to zero. This cannot be undone."
+          onConfirm={doReset}
+          onCancel={() => setModal(null)}
+          loading={modalLoading}
+        />
+      )}
+      {modal?.type === 'backup' && (
+        <ConfirmModal
+          title="Backup Data?"
+          desc="This will create a backup snapshot of all current earnings data."
+          onConfirm={doBackup}
+          onCancel={() => setModal(null)}
+          loading={modalLoading}
+        />
+      )}
+
+      {/* ── Page Header ── */}
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-30">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Title + Breadcrumb */}
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-gray-900 leading-tight">All Hosts</h1>
+              <nav className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                <span>Users</span>
+                <span>/</span>
+                <span className="text-gray-700 font-medium">All Hosts</span>
+              </nav>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="sm:ml-auto flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setModal({ type: 'reset' })}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 transition-all active:scale-95"
+              >
+                <RefreshCw size={14} />
+                <span className="hidden sm:inline">Reset Earnings</span>
+              </button>
+              <button
+                onClick={() => setModal({ type: 'backup' })}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-sky-200 bg-sky-50 text-sky-700 text-sm font-medium hover:bg-sky-100 transition-all active:scale-95"
+              >
+                <Database size={14} />
+                <span className="hidden sm:inline">Backup Data</span>
+              </button>
+              <button
+                onClick={exportPDF}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition-all active:scale-95"
+              >
+                <Download size={14} />
+                <span className="hidden sm:inline">Export PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-5">
+
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard icon={Users}     label="Total Hosts"   value={stats.totalHosts}   loading={statsLoading} color="blue"   />
+          <StatCard icon={UserCheck} label="Total Agents"  value={stats.totalAgents}  loading={statsLoading} color="green"  />
+          <StatCard icon={Hash}      label="This Page"     value={rows.length}         loading={loading}      color="violet" />
+          <StatCard icon={TrendingUp} label="Total Records" value={totalCount}         loading={loading}      color="amber"  />
+        </div>
+
+        {/* ── Search Bar ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by host name or UID…"
+              className="w-full pl-9 pr-10 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:bg-white transition"
+            />
+            {search && (
+              <button
+                onClick={() => { setSearch(''); searchRef.current?.focus(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-400 shrink-0">
+            {loading
+              ? <><Loader2 size={13} className="animate-spin text-sky-500" /> Loading…</>
+              : <>{totalCount.toLocaleString()} results • Page {page}/{totalPages}</>
+            }
+          </div>
+        </div>
+
+        {/* ── TABLE (desktop) / CARDS (mobile) ── */}
+
+        {/* Desktop Table */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[900px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-gray-100">
+                  {[
+                    ['Object ID', ''],
+                    ['#', 'w-10'],
+                    ['Host UID', ''],
+                    ['Name', ''],
+                    ['Agency Name', ''],
+                    ['Owner UID', ''],
+                    ['Video Earn', 'text-right'],
+                    ['Video Duration', 'text-right'],
+                    ['Audio Earn', 'text-right'],
+                    ['Audio Duration', 'text-right'],
+                    ['Board Total', 'text-right'],
+                    ['User Total', 'text-right'],
+                  ].map(([h, cls]) => (
+                    <th key={h} className={`px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap ${cls}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      {Array.from({ length: 12 }).map((_, j) => (
+                        <td key={j} className="px-4 py-3.5">
+                          <div className="h-4 bg-gray-100 rounded w-full" style={{ width: `${40 + (j * 13) % 40}%` }} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="px-5 py-16 text-center">
+                      <Users size={32} className="mx-auto mb-2 text-gray-200" />
+                      <p className="text-sm text-gray-400">No records found{search ? ` for "${search}"` : ''}.</p>
+                    </td>
+                  </tr>
+                ) : rows.map((row, idx) => (
+                  <tr key={row.objectId} className="hover:bg-sky-50/40 transition-colors group">
+                    <td className="px-4 py-3.5">
+                      <code className="text-[11px] bg-gray-100 text-gray-500 px-2 py-1 rounded-md font-mono tracking-tight">{row.objectId}</code>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">
+                      {(page - 1) * PAGE_SIZE + idx + 1}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md font-mono">#{row.uid}</code>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={row.name} />
+                        <span className="font-medium text-gray-900 whitespace-nowrap">{row.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <Badge variant="blue">{row.agencyName}</Badge>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <code className="text-xs text-gray-500 font-mono">{row.agencyOwnerId}</code>
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-medium text-gray-700">{row.videoBoardEarning.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-500">{fmtMin(row.videoBoardDuration)}</td>
+                    <td className="px-4 py-3.5 text-right font-medium text-gray-700">{row.audioBoardEarning.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-500">{fmtMin(row.audioBoardDuration)}</td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="font-semibold text-violet-700">{row.totalEarning?.toLocaleString()}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                        <Gem size={11} className="text-emerald-400" />
+                        {row.totalUserEarning?.toLocaleString()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {!loading && rows.length > 0 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={setPage}
+              totalCount={totalCount}
+              pageSize={PAGE_SIZE}
+            />
+          )}
+        </div>
+
+        {/* Mobile Card Grid */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 animate-pulse space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 bg-gray-200 rounded w-1/2" />
+                    <div className="h-3 bg-gray-100 rounded w-1/3" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <div key={j} className="h-14 bg-gray-100 rounded-xl" />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : rows.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+              <Users size={32} className="mx-auto mb-2 text-gray-200" />
+              <p className="text-sm text-gray-400">No records found{search ? ` for "${search}"` : ''}.</p>
+            </div>
+          ) : (
+            rows.map(row => <HostCard key={row.objectId} row={row} />)
+          )}
+
+          {/* Mobile Pagination */}
+          {!loading && rows.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onChange={setPage}
+                totalCount={totalCount}
+                pageSize={PAGE_SIZE}
+              />
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      <style>{`
+        @keyframes fadeUp { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
+    </div>
+  );
+};
+
+export default AllHosts;

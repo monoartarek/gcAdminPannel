@@ -50,6 +50,10 @@ import GiftHistory from './Pages/GiftHistory';
 import CoinHistory from './Pages/CoinHistory';
 
 
+
+
+
+
 import Login from './Pages/Login';
 
 import ProtectedRoute from './components/ProtectedRoute';
@@ -58,6 +62,9 @@ import './App.css';
 import Profile from "./Pages/Profile";
 import GiftHistoryPage from './Pages/GiftHistory';
 import CoinHistoryPage from './Pages/CoinHistory';
+
+
+
 
 function App() {
 
@@ -188,6 +195,14 @@ function App() {
                     <Route path ="/gift-history" element={<GiftHistoryPage   />} />
 
                     <Route path ="/coin-history" element={<CoinHistoryPage/>} />
+
+                    
+
+                    
+
+                    
+
+                    
 
                     
                   </Routes>

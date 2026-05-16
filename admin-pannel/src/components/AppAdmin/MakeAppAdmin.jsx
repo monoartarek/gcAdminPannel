@@ -1,519 +1,783 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import Parse from "../../parseConfig";
-import "./MakeAppAdmin.css";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Parse from '../../parseConfig';
 import {
-  faShield, faUserShield, faRotateRight,
-  faTableList, faBorderAll,
-} from "@fortawesome/free-solid-svg-icons";
+  Search, X, RefreshCw, ChevronLeft, ChevronRight,
+  ChevronsLeft, ChevronsRight, Loader2, AlertTriangle,
+  Shield, FileDown, Info, Pencil, Phone, UserMinus,
+  UserPlus, Building2, Hash, Users, Star, Check,
+  ExternalLink, ChevronDown
+} from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-/* ════════════════════════════════════════════════════════════
-   MakeAppAdmin.jsx — Corrected from PHP source
-   
-   PHP logic:
-   1. Check user.admin_role === "admin" → is admin
-   2. Make admin:
-      - Set _User.admin_role = "admin"
-      - Create AgentRole record: { admin_id, admin_by_id, total_points, points, total_agent, agents_list }
-   3. Remove admin:
-      - Set _User.admin_role = ""
-      - Find AgentRole where admin_id = objectId, destroy it
-════════════════════════════════════════════════════════════ */
+/* ─── constants ──────────────────────────────── */
+const PAGE_SIZE = 10;
 
-const PAGE_SIZE = 25;
+/* ─── helpers ────────────────────────────────── */
+const getInitials = (name = '?') =>
+  name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-/* ── helpers ── */
-function getInitial(name) { return (name || "?").charAt(0).toUpperCase(); }
-function getAvatarColor(str) {
-  const p = ["#6366f1","#f472b6","#34d399","#fbbf24","#f87171","#60a5fa","#a78bfa","#22d3ee"];
+const COLORS = [
+  'bg-indigo-100 text-indigo-700', 'bg-sky-100 text-sky-700',
+  'bg-emerald-100 text-emerald-700', 'bg-rose-100 text-rose-700',
+  'bg-amber-100 text-amber-700', 'bg-violet-100 text-violet-700',
+];
+const avatarColor = (str = '') => {
   let h = 0;
-  for (let i = 0; i < (str||"").length; i++) h = str.charCodeAt(i) + ((h<<5)-h);
-  return p[Math.abs(h) % p.length];
-}
-function copyToClipboard(text, showToast) {
-  navigator.clipboard?.writeText(text)
-    .then(() => showToast("Copied!", "copy"))
-    .catch(() => {
-      const el = document.createElement("textarea");
-      el.value = text; document.body.appendChild(el);
-      el.select(); document.execCommand("copy");
-      document.body.removeChild(el);
-      showToast("Copied!", "copy");
-    });
-}
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return COLORS[Math.abs(h) % COLORS.length];
+};
 
-export default function MakeAppAdmin() {
+const fmt = n => Number(n || 0).toLocaleString();
 
-  const [users,         setUsers]         = useState([]);
-  const [searchInput,   setSearchInput]   = useState("");
-  const [search,        setSearch]        = useState("");
-  const [roleFilter,    setRoleFilter]    = useState("all");
+/* ─── Toast ───────────────────────────────────── */
+const Toast = ({ msg, type, onDone }) => {
+  useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, [onDone]);
+  const s = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-gray-800' };
+  return (
+    <div className={`fixed top-20 right-5 z-[999] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl text-white text-sm font-medium ${s[type] || s.info}`}
+      style={{ animation: 'fadeUp .2s ease-out' }}>
+      {type === 'success' && <Check size={14} />}
+      {type === 'error' && <AlertTriangle size={14} />}
+      {msg}
+    </div>
+  );
+};
+
+/* ─── Confirm Modal ───────────────────────────── */
+const ConfirmModal = ({ title, desc, onConfirm, onCancel, loading, danger }) => (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ marginTop: '70px' }}>
+    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${danger ? 'bg-red-100' : 'bg-indigo-100'}`}>
+        {danger ? <UserMinus size={22} className="text-red-600" /> : <UserPlus size={22} className="text-indigo-600" />}
+      </div>
+      <h3 className="text-base font-semibold text-gray-900 text-center mb-1">{title}</h3>
+      <p className="text-sm text-gray-500 text-center mb-6">{desc}</p>
+      <div className="flex gap-3">
+        <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
+        <button onClick={onConfirm} disabled={loading}
+          className={`flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition disabled:opacity-60 flex items-center justify-center gap-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+          {loading && <Loader2 size={14} className="animate-spin" />}
+          {loading ? 'Processing…' : 'Confirm'}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─── WhatsApp Modal ──────────────────────────── */
+const WhatsAppModal = ({ user, onConfirm, onCancel, loading }) => {
+  const [num, setNum] = useState(user.whatsapp || '');
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ marginTop: '70px' }}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+          <Phone size={22} className="text-green-600" />
+        </div>
+        <h3 className="text-base font-semibold text-gray-900 text-center mb-1">Set WhatsApp Number</h3>
+        <p className="text-sm text-gray-500 text-center mb-4">@{user.username}</p>
+        <input type="tel" autoFocus value={num}
+          onChange={e => setNum(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && onConfirm(num || '+8801703449001')}
+          placeholder="+880 17..."
+          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
+        />
+        <div className="flex gap-3 mt-4">
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
+          <button onClick={() => onConfirm(num || '+8801703449001')} disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition disabled:opacity-60 flex items-center justify-center gap-2">
+            {loading && <Loader2 size={14} className="animate-spin" />} Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Agencies Modal ──────────────────────────── */
+const AgenciesModal = ({ admin, agencies, onClose, onExportPDF }) => (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+    style={{ marginTop: '70px' }} onClick={onClose}>
+    <div className="bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col"
+      style={{ maxHeight: 'calc(100vh - 90px)' }}
+      onClick={e => e.stopPropagation()}>
+
+      {/* Header */}
+      <div className="flex items-center gap-0 bg-indigo-600 rounded-t-3xl sm:rounded-t-2xl px-6 py-5 shrink-0">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-white">Agencies Managed</h2>
+          <p className="text-indigo-200 text-xs mt-0.5">By {admin.name} · {agencies.length} agency{agencies.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={onExportPDF}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-xl transition">
+            <FileDown size={14} /> PDF
+          </button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
+        {[
+          { label: 'Total Agencies', value: agencies.length, color: 'text-indigo-700', bg: 'bg-indigo-50' },
+          { label: 'Active Agents',  value: agencies.filter(a => a.agencyRole === 'agent').length, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { label: 'Admin UID',      value: `#${admin.uid}`, color: 'text-gray-700', bg: 'bg-gray-50' },
+        ].map(s => (
+          <div key={s.label} className={`${s.bg} rounded-xl p-3 text-center`}>
+            <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Agency list */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        {agencies.length === 0 ? (
+          <div className="text-center py-14 text-gray-400">
+            <Building2 size={32} className="mx-auto mb-2 text-gray-200" />
+            <p className="text-sm">No agencies found for this admin.</p>
+          </div>
+        ) : agencies.map(ag => (
+          <div key={ag.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition">
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 truncate">{ag.agencyName || 'Unnamed Agency'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">UID: {ag.uid} · @{ag.username}</p>
+            </div>
+            <span className="shrink-0 ml-3 bg-emerald-100 text-emerald-700 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">
+              {ag.agencyRole}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50 rounded-b-2xl shrink-0">
+        <p className="text-xs text-gray-400">{agencies.length} total agencies</p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-white transition font-medium">Close</button>
+          <button onClick={onExportPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">
+            <FileDown size={15} /> Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─── Pagination ──────────────────────────────── */
+const Pagination = ({ page, totalPages, onChange, totalCount, pageSize }) => {
+  const start = (page - 1) * pageSize + 1;
+  const end   = Math.min(page * pageSize, totalCount);
+  const delta = 2;
+  const pages = [];
+  for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) pages.push(i);
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-gray-100">
+      <p className="text-xs text-gray-400 order-2 sm:order-1">
+        Showing <span className="font-medium text-gray-700">{start}–{end}</span> of <span className="font-medium text-gray-700">{totalCount.toLocaleString()}</span>
+      </p>
+      <div className="flex items-center gap-1 order-1 sm:order-2">
+        <PgBtn onClick={() => onChange(1)}          disabled={page === 1}          icon={ChevronsLeft} />
+        <PgBtn onClick={() => onChange(page - 1)}   disabled={page === 1}          icon={ChevronLeft} />
+        {pages[0] > 1 && <span className="px-1 text-gray-400">…</span>}
+        {pages.map(p => (
+          <button key={p} onClick={() => onChange(p)}
+            className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${p === page ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+            {p}
+          </button>
+        ))}
+        {pages[pages.length - 1] < totalPages && <span className="px-1 text-gray-400">…</span>}
+        <PgBtn onClick={() => onChange(page + 1)}   disabled={page === totalPages} icon={ChevronRight} />
+        <PgBtn onClick={() => onChange(totalPages)} disabled={page === totalPages} icon={ChevronsRight} />
+      </div>
+    </div>
+  );
+};
+const PgBtn = ({ onClick, disabled, icon: Icon }) => (
+  <button onClick={onClick} disabled={disabled}
+    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
+    <Icon size={14} />
+  </button>
+);
+
+/* ═══════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════ */
+export default function AdminManagement() {
+  const [admins,        setAdmins]        = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
-  const [page,          setPage]          = useState(0);
+  const [page,          setPage]          = useState(1);
   const [totalCount,    setTotalCount]    = useState(0);
-  const [viewMode,      setViewMode]      = useState("list");
+  const [searchInput,   setSearchInput]   = useState('');
+  const [searchTerm,    setSearchTerm]    = useState('');
+  const [statCounts,    setStatCounts]    = useState({ total: 0 });
   const [toast,         setToast]         = useState(null);
-  const [animated,      setAnimated]      = useState(false);
-  const [confirmModal,  setConfirmModal]  = useState(null);
-  const [fontSize,      setFontSize]      = useState("md");
-  const [statCounts,    setStatCounts]    = useState({ total: 0, admin: 0 });
 
-  /* ── toast ── */
-  const showToast = useCallback((msg, type = "success") => {
+  /* modals */
+  const [toggleModal,    setToggleModal]    = useState(null); // admin object
+  const [waModal,        setWaModal]        = useState(null); // admin object
+  const [agenciesModal,  setAgenciesModal]  = useState(null); // { admin, agencies }
+  const [agenciesLoading, setAgenciesLoading] = useState(false);
+
+  const searchRef = useRef();
+  const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  /* ── debounce search ── */
-  useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput); setPage(0); }, 380);
-    return () => clearTimeout(t);
-  }, [searchInput]);
+  /* ── map _User parse object to plain ── */
+  const mapAdmin = (u) => {
+    const av = u.get('avatar');
+    let avatarUrl = null;
+    if (av && typeof av.url === 'function') avatarUrl = av.url();
+    else if (av?.url) avatarUrl = av.url;
+    else if (typeof av === 'string') avatarUrl = av;
 
-  /* ════════════════════════════════════════════════════════
-     BUILD QUERY
-     Uses admin_role field — same as PHP
-  ════════════════════════════════════════════════════════ */
-  const buildQuery = useCallback((roleF, srch) => {
-    const User    = Parse.Object.extend("_User");
-    const trimmed = srch.trim();
+    return {
+      objectId:   u.id,
+      uid:        String(u.get('uid') || u.id),
+      name:       u.get('name')             || '—',
+      username:   u.get('username')         || 'anonymous',
+      gender:     u.get('gender')           || '—',
+      whatsapp:   u.get('whatsapp_number')  || '',
+      adminRole:  u.get('admin_role')       || '',
+      isAdmin:    u.get('admin_role') === 'admin',
+      avatarUrl,
+    };
+  };
 
-    if (trimmed) {
-      const queries = [];
-      const qN = new Parse.Query(User); qN.contains("name", trimmed);     queries.push(qN);
-      const qU = new Parse.Query(User); qU.contains("username", trimmed); queries.push(qU);
-      const n  = parseInt(trimmed);
-      if (!isNaN(n)) { const qI = new Parse.Query(User); qI.equalTo("uid", n); queries.push(qI); }
-      const combined = Parse.Query.or(...queries);
-      if (roleF === "admin") combined.equalTo("admin_role", "admin");
-      if (roleF === "user")  combined.notEqualTo("admin_role", "admin");
-      return combined;
-    }
-
-    const q = new Parse.Query(User);
-    if (roleF === "admin") q.equalTo("admin_role", "admin");
-    if (roleF === "user")  q.notEqualTo("admin_role", "admin");
-    return q;
-  }, []);
-
-  /* ════════════════════════════════════════════════════════
-     FETCH STAT COUNTS
-  ════════════════════════════════════════════════════════ */
-  const fetchStatCounts = useCallback(async () => {
-    try {
-      const User   = Parse.Object.extend("_User");
-      const mk     = { useMasterKey: true };
-      const qTotal = new Parse.Query(User);
-      const qAdmin = new Parse.Query(User); qAdmin.equalTo("admin_role", "admin");
-      const [total, admin] = await Promise.all([
-        qTotal.count(mk),
-        qAdmin.count(mk),
-      ]);
-      setStatCounts({ total, admin });
-    } catch (err) { console.error("Stat count:", err); }
-  }, []);
-
-  /* ════════════════════════════════════════════════════════
-     FETCH PAGE
-  ════════════════════════════════════════════════════════ */
-  const fetchPage = useCallback(async (pageNum, roleF, srch) => {
-    setLoading(true); setAnimated(false);
+  /* ── fetch admins page ── */
+  const fetchPage = useCallback(async (pg, q) => {
+    setLoading(true);
     try {
       const mk = { useMasterKey: true };
-      const q      = buildQuery(roleF, srch);
-      const countQ = buildQuery(roleF, srch);
+      const User = Parse.Object.extend('_User');
 
-      q.descending("createdAt");
-      q.limit(PAGE_SIZE);
-      q.skip(pageNum * PAGE_SIZE);
-      q.select("uid","name","username","admin_role","avatar","gender");
+      const buildQ = () => {
+        const qry = new Parse.Query(User);
+        qry.equalTo('admin_role', 'admin');
+        qry.select(['uid', 'name', 'username', 'gender', 'avatar', 'admin_role', 'whatsapp_number']);
+        if (q.trim()) {
+          const n = parseInt(q.trim());
+          if (!isNaN(n)) qry.equalTo('uid', n);
+          else qry.matches('name', q.trim(), 'i');
+        }
+        return qry;
+      };
 
-      const [batch, count] = await Promise.all([q.find(mk), countQ.count(mk)]);
+      const dq = buildQ(); const cq = buildQ();
+      dq.descending('createdAt');
+      dq.limit(PAGE_SIZE);
+      dq.skip((pg - 1) * PAGE_SIZE);
+
+      const [results, count] = await Promise.all([dq.find(mk), cq.count(mk)]);
+      setAdmins(results.map(mapAdmin));
       setTotalCount(count);
-
-      setUsers(batch.map(u => {
-        const av = u.get("avatar");
-        let avatarUrl = null;
-        if (av && typeof av.url === "function") avatarUrl = av.url();
-        else if (typeof av === "string") avatarUrl = av;
-        return {
-          objectId: u.id,
-          uid:      String(u.get("uid") || u.id),
-          name:     u.get("name")       || "—",
-          username: u.get("username")   || "anonymous",
-          gender:   u.get("gender")     || "—",
-          isAdmin:  u.get("admin_role") === "admin", // matches PHP: $isAdmin = $user->get('admin_role') === "admin"
-          avatar:   avatarUrl,
-        };
-      }));
-    } catch (err) {
-      showToast("Fetch failed: " + err.message, "error");
+    } catch (e) {
+      console.error(e);
+      showToast('Fetch failed: ' + e.message, 'error');
     } finally {
       setLoading(false);
-      setTimeout(() => setAnimated(true), 60);
     }
-  }, [buildQuery, showToast]);
+  }, [showToast]);
+
+  /* ── fetch stat counts ── */
+  const fetchStats = useCallback(async () => {
+    try {
+      const q = new Parse.Query('_User');
+      q.equalTo('admin_role', 'admin');
+      const total = await q.count({ useMasterKey: true });
+      setStatCounts({ total });
+    } catch (e) { console.error(e); }
+  }, []);
 
   useEffect(() => {
-    fetchPage(page, roleFilter, search);
-  }, [page, roleFilter, search, fetchPage]);
+    fetchStats();
+    fetchPage(1, '');
+  }, []); // eslint-disable-line
 
-  useEffect(() => { fetchStatCounts(); }, [fetchStatCounts]);
+  useEffect(() => {
+    fetchPage(page, searchTerm);
+  }, [page, searchTerm]); // eslint-disable-line
 
-  /* ── pagination ── */
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  const pageRange  = useMemo(() => {
-    const d = 2, r = [];
-    for (let i = Math.max(0,page-d); i <= Math.min(totalPages-1,page+d); i++) r.push(i);
-    return r;
-  }, [page, totalPages]);
-  const changePage = n => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  /* ════════════════════════════════════════════════════════
-     TOGGLE ADMIN
-     Matches PHP toggle_reseller logic exactly:
-     
-     MAKE ADMIN:
-       1. _User.admin_role = "admin"
-       2. Create AgentRole: { admin_id, admin_by_id:"admin",
-                              total_points:0, points:0,
-                              total_agent:0, agents_list:[] }
-     
-     REMOVE ADMIN:
-       1. _User.admin_role = ""
-       2. Find AgentRole where admin_id = objectId → destroy
-  ════════════════════════════════════════════════════════ */
-  const confirmToggle = async () => {
-    if (!confirmModal) return;
-    const user   = confirmModal;
-    const making = !user.isAdmin; // true = making admin, false = removing
-    setConfirmModal(null);
-    setActionLoading(user.objectId);
-
+  /* ── fetch agencies for an admin ── */
+  const fetchAgencies = async (adminObjectId) => {
     try {
-      const mk  = { useMasterKey: true };
-      const obj = await new Parse.Query(Parse.Object.extend("_User"))
-        .get(user.objectId, mk);
+      const q = new Parse.Query('_User');
+      q.equalTo('admin_id', adminObjectId);
+      q.equalTo('agency_role', 'agent');
+      q.select(['uid', 'name', 'username', 'agency_name', 'agency_role']);
+      q.limit(1000);
+      const res = await q.find({ useMasterKey: true });
+      return res.map(a => ({
+        id:         a.id,
+        uid:        String(a.get('uid') || '—'),
+        name:       a.get('name')        || '—',
+        username:   a.get('username')    || '—',
+        agencyName: a.get('agency_name') || '—',
+        agencyRole: a.get('agency_role') || '—',
+      }));
+    } catch (e) { console.error(e); return []; }
+  };
 
-      if (making) {
-        /* ── MAKE ADMIN ── */
-        obj.set("admin_role", "admin");
-        await obj.save(null, mk);
+  /* ── open agencies modal ── */
+  const openAgencies = async (admin) => {
+    setAgenciesLoading(true);
+    const agencies = await fetchAgencies(admin.objectId);
+    setAgenciesModal({ admin, agencies });
+    setAgenciesLoading(false);
+  };
 
-        /* Create AgentRole record */
-        const AgentRole = Parse.Object.extend("AgentRole");
-        const agent     = new AgentRole();
-        agent.set("admin_id",      user.objectId); // _User objectId
-        agent.set("admin_by_id",   "admin");
-        agent.set("total_points",  0);
-        agent.set("points",        0);
-        agent.set("total_agent",   0);
-        agent.set("agents_list",   []);
-        await agent.save(null, mk);
+  /* ── export PDF ── */
+  const exportPDF = (admin, agencies) => {
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
 
-        showToast(`${user.username} is now an Admin ✓`, "success");
+      /* Title */
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Agency Report', 14, 18);
 
-      } else {
-        /* ── REMOVE ADMIN ── */
-        obj.set("admin_role", "");
-        await obj.save(null, mk);
+      /* Subtitle */
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80);
+      doc.text(`Admin: ${admin.name}   |   UID: ${admin.uid}   |   @${admin.username}`, 14, 26);
+      doc.text(`WhatsApp: ${admin.whatsapp || '—'}   |   Generated: ${new Date().toLocaleString()}`, 14, 32);
+      doc.text(`Total Agencies: ${agencies.length}`, 14, 38);
 
-        /* Find and destroy AgentRole record */
-        const q = new Parse.Query("AgentRole");
-        q.equalTo("admin_id", user.objectId);
-        const existing = await q.first(mk);
-        if (existing) await existing.destroy(mk);
+      /* Table */
+      autoTable(doc, {
+        head: [['#', 'Agency Name', 'UID', 'Username', 'Role']],
+        body: agencies.map((ag, i) => [
+          i + 1,
+          ag.agencyName,
+          ag.uid,
+          '@' + ag.username,
+          ag.agencyRole,
+        ]),
+        startY: 44,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        bodyStyles: { fontSize: 9 },
+        alternateRowStyles: { fillColor: [238, 242, 255] },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 60 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 50 },
+          4: { cellWidth: 30 },
+        },
+        margin: { left: 14, right: 14 },
+        didDrawPage: (hookData) => {
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          doc.text(
+            `Page ${hookData.pageNumber} of ${pageCount}`,
+            doc.internal.pageSize.getWidth() / 2,
+            doc.internal.pageSize.getHeight() - 8,
+            { align: 'center' }
+          );
+        },
+      });
 
-        showToast(`${user.username} admin role removed`, "info");
-      }
-
-      /* Update local state */
-      setUsers(prev => prev.map(u =>
-        u.objectId === user.objectId ? { ...u, isAdmin: making } : u
-      ));
-      fetchStatCounts();
-
+      doc.save(`Admin_${admin.uid}_Agencies_${Date.now()}.pdf`);
+      showToast('PDF exported!', 'success');
     } catch (err) {
-      console.error("Toggle admin:", err);
-      showToast("Failed: " + err.message, "error");
-    } finally {
-      setActionLoading(null);
+      console.error('PDF error:', err);
+      showToast('PDF failed: ' + err.message, 'error');
     }
   };
 
-  const refresh = () => { fetchPage(page, roleFilter, search); fetchStatCounts(); };
+  /* ── toggle admin role ── */
+  const confirmToggle = async () => {
+    const admin = toggleModal;
+    setToggleModal(null);
+    setActionLoading(admin.objectId);
+    try {
+      const obj = await new Parse.Query('_User').get(admin.objectId, { useMasterKey: true });
+      const newRole = admin.isAdmin ? '' : 'admin';
+      obj.set('admin_role', newRole);
+      await obj.save(null, { useMasterKey: true });
 
-  /* ════════════ RENDER ════════════ */
+      /* sync AgentRole class */
+      if (admin.isAdmin) {
+        /* removing admin — destroy AgentRole record */
+        const aq = new Parse.Query('AgentRole');
+        aq.equalTo('admin_id', admin.objectId);
+        const found = await aq.first({ useMasterKey: true });
+        if (found) await found.destroy({ useMasterKey: true });
+      } else {
+        /* making admin — create AgentRole record */
+        const AgentRole = Parse.Object.extend('AgentRole');
+        const rec = new AgentRole();
+        rec.set('admin_id', admin.objectId);
+        rec.set('admin_by_id', 'admin');
+        rec.set('total_points', 0);
+        rec.set('points', 0);
+        rec.set('total_agent', 0);
+        rec.setArray('agents_list', []);
+        await rec.save(null, { useMasterKey: true });
+      }
+
+      showToast(admin.isAdmin ? `@${admin.username} removed from admins` : `@${admin.username} is now an Admin ✓`, 'success');
+      fetchPage(page, searchTerm);
+      fetchStats();
+    } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+    finally { setActionLoading(null); }
+  };
+
+  /* ── set whatsapp ── */
+  const confirmWA = async (num) => {
+    const admin = waModal;
+    setWaModal(null);
+    setActionLoading(admin.objectId);
+    try {
+      const obj = await new Parse.Query('_User').get(admin.objectId, { useMasterKey: true });
+      obj.set('whatsapp_number', num);
+      await obj.save(null, { useMasterKey: true });
+      setAdmins(list => list.map(a => a.objectId === admin.objectId ? { ...a, whatsapp: num } : a));
+      showToast('WhatsApp updated!', 'success');
+    } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+    finally { setActionLoading(null); }
+  };
+
+  /* ─── RENDER ──────────────────────────────────── */
   return (
-    <div className={`adm-root adm-fs--${fontSize}`}>
+    <div className="min-h-screen bg-slate-50" style={{ paddingTop: '70px' }}>
 
-      {/* Toast */}
-      {toast && (
-        <div className={`adm-toast adm-toast--${toast.type}`}>
-          <span className="adm-toast-dot"/>
-          {toast.msg}
-        </div>
+      {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+
+      {/* Modals */}
+      {toggleModal && (
+        <ConfirmModal
+          title={toggleModal.isAdmin ? 'Remove Admin' : 'Make Admin'}
+          desc={toggleModal.isAdmin
+            ? `Remove @${toggleModal.username} from admin role? Their AgentRole record will also be deleted.`
+            : `Grant admin role to @${toggleModal.username}? An AgentRole record will be created.`}
+          danger={toggleModal.isAdmin}
+          onConfirm={confirmToggle}
+          onCancel={() => setToggleModal(null)}
+          loading={actionLoading === toggleModal?.objectId}
+        />
+      )}
+      {waModal && (
+        <WhatsAppModal user={waModal}
+          onConfirm={confirmWA} onCancel={() => setWaModal(null)}
+          loading={actionLoading === waModal?.objectId} />
+      )}
+      {agenciesModal && (
+        <AgenciesModal
+          admin={agenciesModal.admin}
+          agencies={agenciesModal.agencies}
+          onClose={() => setAgenciesModal(null)}
+          onExportPDF={() => exportPDF(agenciesModal.admin, agenciesModal.agencies)}
+        />
       )}
 
-      {/* Confirm Modal */}
-      {confirmModal && (
-        <div className="adm-overlay" onClick={() => setConfirmModal(null)}>
-          <div className="adm-modal" onClick={e => e.stopPropagation()}>
-            <div className="adm-modal-av" style={{ background: getAvatarColor(confirmModal.username) }}>
-              {getInitial(confirmModal.name)}
-            </div>
-            <h3 className="adm-modal-title">
-              {confirmModal.isAdmin ? "Remove Admin" : "Make Admin"}
-            </h3>
-            <p className="adm-modal-desc">
-              {confirmModal.isAdmin
-                ? <><strong>@{confirmModal.username}</strong>'s admin role will be removed and their AgentRole record deleted.</>
-                : <>Grant admin to <strong>@{confirmModal.username}</strong>? An AgentRole record will also be created.</>
-              }
-            </p>
-            <div className="adm-modal-btns">
-              <button className="adm-modal-cancel" onClick={() => setConfirmModal(null)}>Cancel</button>
-              <button
-                className={`adm-modal-ok ${confirmModal.isAdmin ? "is-red" : "is-amber"}`}
-                onClick={confirmToggle}>
-                {confirmModal.isAdmin ? "Yes, Remove" : "Yes, Make Admin"}
-              </button>
-            </div>
+      {/* ── Fixed sticky header ── */}
+      <div className="bg-white border-b border-gray-100 fixed top-[70px] left-0 right-0 z-30">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="min-w-0">
+            <h1 className="text-base font-bold text-gray-900">Admin Management</h1>
+            <nav className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+              <span>Dashboard</span><span>/</span>
+              <span className="text-gray-700 font-medium">Admins</span>
+            </nav>
           </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="adm-header">
-        <div>
-          <p className="adm-label">Admin Management</p>
-          <h1 className="adm-title">App Admins</h1>
-          <p className="adm-sub">
-            {`${statCounts.total.toLocaleString()} users · ${statCounts.admin} admins · showing ${users.length} of ${totalCount}`}
-          </p>
-        </div>
-        <div className="adm-header-actions">
-          {/* Font size */}
-          <div className="adm-toggle adm-fs-toggle">
-            {[{key:"sm",label:"S"},{key:"md",label:"M"},{key:"lg",label:"L"}].map(f => (
-              <button key={f.key}
-                className={`adm-toggle-btn adm-fs-btn ${fontSize===f.key?"on":""}`}
-                onClick={() => setFontSize(f.key)}>{f.label}</button>
-            ))}
-          </div>
-          {/* View toggle */}
-          <div className="adm-toggle">
-            <button className={`adm-toggle-btn ${viewMode==="list"?"on":""}`}
-              onClick={() => setViewMode("list")} title="List">
-              <FontAwesomeIcon icon={faTableList}/>
-            </button>
-            <button className={`adm-toggle-btn ${viewMode==="card"?"on":""}`}
-              onClick={() => setViewMode("card")} title="Cards">
-              <FontAwesomeIcon icon={faBorderAll}/>
+          <div className="sm:ml-auto flex items-center gap-2 flex-wrap">
+            <button
+              onClick={async () => { await fetchStats(); fetchPage(page, searchTerm); }}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
-          <button className="adm-refresh" onClick={refresh} disabled={loading} title="Refresh">
-            {loading ? <span className="adm-spin"/> : <FontAwesomeIcon icon={faRotateRight}/>}
-          </button>
         </div>
       </div>
 
-      {/* Stat pills */}
-      <div className="adm-pills">
-        {[
-          { key:"all",   label:"All Users", val:statCounts.total,                    dot:"#818cf8" },
-          { key:"admin", label:"Admins",    val:statCounts.admin,                    dot:"#f5a623" },
-          { key:"user",  label:"Regular",   val:statCounts.total - statCounts.admin, dot:"#60a5fa" },
-        ].map((s,i) => (
-          <button key={s.key}
-            className={`adm-pill ${roleFilter===s.key?"adm-pill--on":""}`}
-            style={{ animationDelay:`${i*60}ms` }}
-            onClick={() => { setRoleFilter(s.key); setPage(0); }}>
-            <span className="adm-pill-dot" style={{ background:s.dot }}/>
-            <span className="adm-pill-val">{s.val.toLocaleString()}</span>
-            <span className="adm-pill-label">{s.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Spacer for fixed header */}
+      <div className="h-[57px]" />
 
-      {/* Search */}
-      <div className="adm-search-row">
-        <div className="adm-search-wrap">
-          <span className="adm-search-icon">⌕</span>
-          <input className="adm-search"
-            placeholder="Search name, username or UID…"
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}/>
-          {searchInput && (
-            <button className="adm-search-x"
-              onClick={() => { setSearchInput(""); setSearch(""); setPage(0); }}>✕</button>
-          )}
-        </div>
-        {!loading && (
-          <span className="adm-count">{totalCount} result{totalCount!==1?"s":""}</span>
-        )}
-      </div>
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-5">
 
-      {/* Page indicator */}
-      {!loading && totalPages > 1 && (
-        <div className="adm-page-indicator">
-          <span>Page <strong>{page+1}</strong> of <strong>{totalPages}</strong></span>
-          <span className="adm-page-indicator-dot"/>
-          <span>Records <strong>{page*PAGE_SIZE+1}–{Math.min((page+1)*PAGE_SIZE,totalCount)}</strong> of <strong>{totalCount}</strong></span>
-        </div>
-      )}
-
-      {/* Content */}
-      {loading ? (
-        <div className="adm-loading">
-          <div className="adm-loading-ring"/>
-          <p>Fetching users…</p>
-        </div>
-      ) : users.length === 0 ? (
-        <div className="adm-empty">
-          <span className="adm-empty-icon">★</span>
-          <p>No users found</p>
-          <button className="adm-empty-reset"
-            onClick={() => { setSearchInput(""); setSearch(""); setRoleFilter("all"); setPage(0); }}>
-            Clear filters
-          </button>
-        </div>
-      ) : viewMode === "card" ? (
-
-        /* CARD VIEW */
-        <div className={`adm-cards ${animated?"in":""}`}>
-          {users.map((user, i) => {
-            const clr = getAvatarColor(user.username);
-            const il  = actionLoading === user.objectId;
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {[
+            { label: 'Total Admins', val: statCounts.total, color: 'indigo', icon: Shield },
+            { label: 'On This Page', val: admins.length,    color: 'sky',    icon: Users  },
+            { label: 'Total Pages',  val: totalPages,       color: 'violet', icon: Hash   },
+          ].map(s => {
+            const c = {
+              indigo: { bg: 'bg-indigo-50 border-indigo-100', icon: 'bg-indigo-100 text-indigo-600', val: 'text-indigo-700' },
+              sky:    { bg: 'bg-sky-50 border-sky-100',       icon: 'bg-sky-100 text-sky-600',       val: 'text-sky-700'   },
+              violet: { bg: 'bg-violet-50 border-violet-100', icon: 'bg-violet-100 text-violet-600', val: 'text-violet-700'},
+            }[s.color];
             return (
-              <div key={user.objectId}
-                className={`adm-card ${user.isAdmin?"adm-card--admin":""}`}
-                style={{ animationDelay:`${i*40}ms` }}>
-
-                {user.isAdmin && <span className="adm-admin-tag">★ Admin</span>}
-
-                <div className="adm-card-av-wrap">
-                  {user.avatar
-                    ? <img src={user.avatar} alt={user.username} className="adm-card-av"/>
-                    : <div className="adm-card-av adm-card-av--init" style={{ background:clr }}>{getInitial(user.name)}</div>
-                  }
-                  {user.isAdmin && <div className="adm-card-star">★</div>}
+              <div key={s.label} className={`rounded-2xl border p-4 flex items-center gap-3 ${c.bg}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.icon}`}>
+                  <s.icon size={18} />
                 </div>
-
-                <p className="adm-card-name">{user.name}</p>
-                <p className="adm-card-user copyable"
-                  onClick={() => copyToClipboard(user.username, showToast)}>@{user.username}</p>
-
-                <div className="adm-uid copyable"
-                  onClick={() => copyToClipboard(user.uid, showToast)}>
-                  <span className="adm-uid-tag">UID</span>
-                  <span className="adm-uid-val">{user.uid}</span>
+                <div>
+                  <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">{s.label}</p>
+                  <p className={`text-xl font-bold mt-0.5 ${c.val}`}>{s.val.toLocaleString()}</p>
                 </div>
-
-                <button
-                  className={`adm-btn ${user.isAdmin?"adm-btn--remove":"adm-btn--make"}`}
-                  disabled={il}
-                  onClick={() => setConfirmModal(user)}>
-                  {il ? <span className="adm-spin"/> : (
-                    <><FontAwesomeIcon icon={user.isAdmin?faUserShield:faShield}/>
-                    {user.isAdmin?" Remove Admin":" Make Admin"}</>
-                  )}
-                </button>
               </div>
             );
           })}
         </div>
 
-      ) : (
-
-        /* LIST VIEW */
-        <div className={`adm-list ${animated?"in":""}`}>
-          <div className="adm-list-head">
-            <span className="adm-lh" style={{ width:52, flexShrink:0 }}/>
-            <span className="adm-lh adm-lh--grow">Name / Username</span>
-            <span className="adm-lh adm-lh--uid">UID</span>
-            <span className="adm-lh adm-lh--uid">Gender</span>
-            <span className="adm-lh">Role</span>
-            <span className="adm-lh adm-lh--right">Action</span>
+        {/* ── Search Bar ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { setSearchTerm(searchInput); setPage(1); } }}
+              placeholder="Search by name or UID… (press Enter)"
+              className="w-full pl-9 pr-9 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white transition"
+            />
+            {searchInput && (
+              <button onClick={() => { setSearchInput(''); setSearchTerm(''); setPage(1); searchRef.current?.focus(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X size={14} />
+              </button>
+            )}
           </div>
+          <button
+            onClick={() => { setSearchTerm(searchInput); setPage(1); }}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition active:scale-95 shrink-0"
+          >
+            <Search size={14} /> Search
+          </button>
+          <div className="flex items-center gap-2 text-xs text-gray-400 shrink-0">
+            {loading
+              ? <><Loader2 size={13} className="animate-spin text-indigo-500" /> Loading…</>
+              : <span className="bg-gray-100 px-3 py-1.5 rounded-lg font-medium">{totalCount.toLocaleString()} admins</span>
+            }
+          </div>
+        </div>
 
-          {users.map((user, i) => {
-            const clr = getAvatarColor(user.username);
-            const il  = actionLoading === user.objectId;
+        {/* ── Desktop Table ── */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[760px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-gray-100">
+                  {['Object ID', 'Admin Profile', 'UID', 'WhatsApp', 'Status', 'Actions'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      {Array.from({ length: 6 }).map((_, j) => (
+                        <td key={j} className="px-5 py-4"><div className="h-4 bg-gray-100 rounded" style={{ width: `${40 + (j * 13) % 45}%` }} /></td>
+                      ))}
+                    </tr>
+                  ))
+                ) : admins.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-16 text-center">
+                      <Shield size={32} className="mx-auto mb-2 text-gray-200" />
+                      <p className="text-sm text-gray-400">No admins found{searchTerm ? ` for "${searchTerm}"` : ''}.</p>
+                    </td>
+                  </tr>
+                ) : admins.map(admin => {
+                  const il = actionLoading === admin.objectId;
+                  return (
+                    <tr key={admin.objectId} className="hover:bg-indigo-50/20 transition-colors">
+                      {/* Object ID */}
+                      <td className="px-5 py-4">
+                        <code className="text-[11px] bg-gray-100 text-gray-500 px-2 py-1 rounded-md font-mono">{admin.objectId}</code>
+                      </td>
+                      {/* Profile */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          {admin.avatarUrl
+                            ? <img src={admin.avatarUrl} alt={admin.name} className="w-9 h-9 rounded-full object-cover border-2 border-indigo-100 shrink-0" />
+                            : <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${avatarColor(admin.username)}`}>{getInitials(admin.name)}</div>
+                          }
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900 whitespace-nowrap">{admin.name}</p>
+                            <p className="text-xs text-gray-400">@{admin.username}</p>
+                          </div>
+                        </div>
+                      </td>
+                      {/* UID */}
+                      <td className="px-5 py-4">
+                        <code className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md font-mono font-bold">#{admin.uid}</code>
+                      </td>
+                      {/* WhatsApp */}
+                      <td className="px-5 py-4 text-xs text-gray-500 font-mono">{admin.whatsapp || '—'}</td>
+                      {/* Status */}
+                      <td className="px-5 py-4">
+                        {admin.isAdmin
+                          ? <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-full text-[11px] font-semibold"><Shield size={10} /> Admin</span>
+                          : <span className="text-[11px] text-gray-400 border border-gray-100 px-2.5 py-1 rounded-full">User</span>
+                        }
+                      </td>
+                      {/* Actions */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* View Agencies */}
+                          <button onClick={() => openAgencies(admin)} disabled={il || agenciesLoading}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-100 rounded-lg hover:bg-sky-100 transition disabled:opacity-50 whitespace-nowrap">
+                            {agenciesLoading ? <Loader2 size={10} className="animate-spin" /> : <Building2 size={10} />} Agencies
+                          </button>
+                          {/* Export PDF */}
+                          <button onClick={async () => { const ags = await fetchAgencies(admin.objectId); exportPDF(admin, ags); }} disabled={il}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition disabled:opacity-50 whitespace-nowrap">
+                            <FileDown size={10} /> PDF
+                          </button>
+                          {/* WhatsApp */}
+                          <button onClick={() => setWaModal(admin)} disabled={il}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-green-700 bg-green-50 border border-green-100 rounded-lg hover:bg-green-100 transition disabled:opacity-50 whitespace-nowrap">
+                            <Phone size={10} /> WA
+                          </button>
+                          {/* Toggle admin */}
+                          <button onClick={() => setToggleModal(admin)} disabled={il}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border transition disabled:opacity-50 whitespace-nowrap ${admin.isAdmin ? 'text-red-600 bg-red-50 border-red-100 hover:bg-red-100' : 'text-indigo-700 bg-indigo-50 border-indigo-100 hover:bg-indigo-100'}`}>
+                            {admin.isAdmin ? <><UserMinus size={10} /> Remove</> : <><UserPlus size={10} /> Make Admin</>}
+                          </button>
+                          {il && <Loader2 size={14} className="animate-spin text-indigo-400" />}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {!loading && admins.length > 0 && totalPages > 1 && (
+            <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={totalCount} pageSize={PAGE_SIZE} />
+          )}
+        </div>
+
+        {/* ── Mobile Cards ── */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 animate-pulse space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="h-3 bg-gray-100 rounded w-1/3" />
+                  </div>
+                </div>
+                <div className="h-10 bg-gray-100 rounded-xl" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-9 bg-gray-100 rounded-xl" />
+                  <div className="h-9 bg-gray-100 rounded-xl" />
+                </div>
+              </div>
+            ))
+          ) : admins.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+              <Shield size={32} className="mx-auto mb-2 text-gray-200" />
+              <p className="text-sm text-gray-400">No admins found.</p>
+            </div>
+          ) : admins.map(admin => {
+            const il = actionLoading === admin.objectId;
             return (
-              <div key={user.objectId}
-                className={`adm-row ${user.isAdmin?"adm-row--admin":""}`}
-                style={{ animationDelay:`${i*25}ms` }}>
+              <div key={admin.objectId} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-                {/* Avatar */}
-                <div className="adm-row-av">
-                  {user.avatar
-                    ? <img src={user.avatar} alt="" className="adm-av-img"/>
-                    : <div className="adm-av-img adm-av-init" style={{ background:clr }}>{getInitial(user.name)}</div>
+                {/* Top */}
+                <div className="flex items-center gap-3 p-4 pb-3">
+                  {admin.avatarUrl
+                    ? <img src={admin.avatarUrl} alt={admin.name} className="w-12 h-12 rounded-full object-cover border-2 border-indigo-100 shrink-0" />
+                    : <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${avatarColor(admin.username)}`}>{getInitials(admin.name)}</div>
                   }
-                  {user.isAdmin && <span className="adm-av-star">★</span>}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900 truncate">{admin.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <code className="text-[11px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold">#{admin.uid}</code>
+                      <span className="text-xs text-gray-400">@{admin.username}</span>
+                    </div>
+                  </div>
+                  {admin.isAdmin
+                    ? <span className="shrink-0 text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"><Shield size={9} /> Admin</span>
+                    : <span className="shrink-0 text-[11px] text-gray-400 border border-gray-100 px-2 py-0.5 rounded-full">User</span>
+                  }
                 </div>
 
-                {/* Name */}
-                <div className="adm-cell adm-cell--grow">
-                  <span className="adm-row-name">{user.name}</span>
-                  <span className="adm-row-user copyable"
-                    onClick={() => copyToClipboard(user.username, showToast)}>@{user.username}</span>
+                {/* Object ID */}
+                <div className="flex items-center justify-between px-4 py-1.5 bg-gray-50 border-y border-gray-100">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Object ID</span>
+                  <code className="text-[11px] font-mono text-gray-500">{admin.objectId}</code>
                 </div>
 
-                {/* UID */}
-                <div className="adm-cell adm-cell--uid">
-                  <span className="adm-row-uid adm-row-uid--chip copyable"
-                    onClick={() => copyToClipboard(user.uid, showToast)}>{user.uid}</span>
+                {/* WhatsApp */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <Phone size={12} /> WhatsApp
+                  </div>
+                  <span className="text-xs font-mono text-gray-600">{admin.whatsapp || '—'}</span>
                 </div>
 
-                {/* Gender */}
-                <div className="adm-cell adm-cell--uid">
-                  <span className="adm-row-uid">{user.gender}</span>
-                </div>
-
-                {/* Role badge */}
-                <div className="adm-cell">
-                  <span className={`adm-badge ${user.isAdmin?"adm-badge--admin":"adm-badge--user"}`}>
-                    {user.isAdmin
-                      ? <><FontAwesomeIcon icon={faShield}/> Admin</>
-                      : "User"
-                    }
-                  </span>
-                </div>
-
-                {/* Action */}
-                <div className="adm-cell adm-cell--right">
-                  <button
-                    className={`adm-btn adm-btn--sm ${user.isAdmin?"adm-btn--remove":"adm-btn--make"}`}
-                    disabled={il}
-                    onClick={() => setConfirmModal(user)}>
-                    {il ? <span className="adm-spin"/> : (
-                      <><FontAwesomeIcon icon={user.isAdmin?faUserShield:faShield}/>
-                      {user.isAdmin?" Remove":" Make Admin"}</>
-                    )}
+                {/* Action Buttons */}
+                <div className="p-3 grid grid-cols-2 gap-2">
+                  {/* Agencies — full width */}
+                  <button onClick={() => openAgencies(admin)} disabled={il || agenciesLoading}
+                    className="col-span-2 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 active:scale-95 transition disabled:opacity-50">
+                    {agenciesLoading ? <Loader2 size={14} className="animate-spin" /> : <Building2 size={14} />}
+                    View Agencies
+                  </button>
+                  {/* PDF */}
+                  <button onClick={async () => { const ags = await fetchAgencies(admin.objectId); exportPDF(admin, ags); }} disabled={il}
+                    className="flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 active:scale-95 transition disabled:opacity-50">
+                    <FileDown size={12} /> Export PDF
+                  </button>
+                  {/* WA */}
+                  <button onClick={() => setWaModal(admin)} disabled={il}
+                    className="flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 active:scale-95 transition disabled:opacity-50">
+                    <Phone size={12} /> WhatsApp
+                  </button>
+                  {/* Toggle */}
+                  <button onClick={() => setToggleModal(admin)} disabled={il}
+                    className={`col-span-2 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl border active:scale-95 transition disabled:opacity-50 ${admin.isAdmin ? 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100' : 'text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100'}`}>
+                    {admin.isAdmin ? <><UserMinus size={12} /> Remove Admin</> : <><UserPlus size={12} /> Make Admin</>}
                   </button>
                 </div>
               </div>
             );
           })}
-        </div>
-      )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="adm-pages">
-          <button className="adm-page adm-page--nav" disabled={page===0||loading} onClick={() => changePage(0)}>«</button>
-          <button className="adm-page adm-page--nav" disabled={page===0||loading} onClick={() => changePage(page-1)}>‹</button>
-          {pageRange[0]>0&&(<><button className="adm-page" onClick={()=>changePage(0)}>1</button>{pageRange[0]>1&&<span className="adm-dots">…</span>}</>)}
-          {pageRange.map(i=>(<button key={i} className={`adm-page ${page===i?"adm-page--on":""}`} onClick={()=>changePage(i)}>{i+1}</button>))}
-          {pageRange[pageRange.length-1]<totalPages-1&&(<>{pageRange[pageRange.length-1]<totalPages-2&&<span className="adm-dots">…</span>}<button className="adm-page" onClick={()=>changePage(totalPages-1)}>{totalPages}</button></>)}
-          <button className="adm-page adm-page--nav" disabled={page===totalPages-1||loading} onClick={() => changePage(page+1)}>›</button>
-          <button className="adm-page adm-page--nav" disabled={page===totalPages-1||loading} onClick={() => changePage(totalPages-1)}>»</button>
+          {/* Mobile Pagination */}
+          {!loading && admins.length > 0 && totalPages > 1 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={totalCount} pageSize={PAGE_SIZE} />
+            </div>
+          )}
         </div>
-      )}
 
+      </div>
+
+      <style>{`
+        @keyframes fadeUp { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
     </div>
   );
 }

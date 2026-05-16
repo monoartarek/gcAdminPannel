@@ -45,6 +45,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
         { label: 'All Earning', path: '/host/earnings' },
         { label: 'All Agency', path: '/all-agencies' },
         { label: 'All Agency History', path: '/host/history' }
+        
       ]
     },
 
