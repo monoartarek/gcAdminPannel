@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import Parse from '../../parseConfig';
 import {
   Users, Search, X, Loader2, RefreshCw,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  ChevronLeft, ChevronRight,
   Building2, Gem, User, Clock, Printer,
   FileText, Table, FileSpreadsheet, Check,
   AlertTriangle, Pencil, ArrowLeft, TrendingUp,
   Hash, ChevronsUpDown, ChevronUp, ChevronDown,
-  Mail, Shield, Eye, Download
+  Mail, Shield, Eye, Download, Copy, LayoutList,
+  LayoutGrid, CheckCheck, Star, Activity, Zap
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -16,71 +16,97 @@ import autoTable from 'jspdf-autotable';
 /* ══════════════════════════════════════════════
    CONSTANTS & HELPERS
 ══════════════════════════════════════════════ */
-const fmt   = n => Number(n || 0).toLocaleString();
-const fmtDur = (days = 0, mins = 0) => `${days} Days ${mins} Min`;
+const fmt    = n  => Number(n  || 0).toLocaleString();
+const fmtDur = (days = 0, mins = 0) => `${days}d ${mins}m`;
 
-const AVATAR_COLORS = [
-  'bg-blue-100 text-blue-700',   'bg-emerald-100 text-emerald-700',
-  'bg-violet-100 text-violet-700', 'bg-rose-100 text-rose-700',
-  'bg-amber-100 text-amber-700',  'bg-teal-100 text-teal-700',
-  'bg-indigo-100 text-indigo-700', 'bg-pink-100 text-pink-700',
+const ACCENT   = '#3b82f6';
+const EMERALD  = '#10b981';
+const VIOLET   = '#8b5cf6';
+const AMBER    = '#f59e0b';
+const ROSE     = '#f43f5e';
+const CYAN     = '#06b6d4';
+
+const AVATAR_GRADIENTS = [
+  'from-blue-500 to-cyan-500',
+  'from-violet-500 to-purple-600',
+  'from-emerald-500 to-teal-500',
+  'from-rose-500 to-pink-500',
+  'from-amber-500 to-orange-500',
+  'from-indigo-500 to-blue-600',
+  'from-teal-500 to-emerald-600',
+  'from-fuchsia-500 to-violet-500',
 ];
-const avatarColor = (str = '') => {
+const avatarGrad = (str = '') => {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+  return AVATAR_GRADIENTS[Math.abs(h) % AVATAR_GRADIENTS.length];
 };
 const getInitials = (name = '?') =>
   name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
+/* ── Copy to clipboard ── */
+const useCopy = () => {
+  const [copied, setCopied] = useState(null);
+  const copy = (text, key) => {
+    navigator.clipboard.writeText(String(text)).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1800);
+    });
+  };
+  return { copied, copy };
+};
+
+const CopyChip = ({ value, label, copyKey, copied, copy }) => (
+  <button
+    onClick={e => { e.stopPropagation(); copy(value, copyKey); }}
+    title={`Copy ${label}`}
+    className="group inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono font-semibold transition-all duration-150
+      bg-white/5 border border-white/10 text-slate-300 hover:bg-blue-500/20 hover:border-blue-400/40 hover:text-blue-300 active:scale-95"
+  >
+    {copied === copyKey
+      ? <><CheckCheck size={10} className="text-emerald-400" /><span className="text-emerald-400">{value}</span></>
+      : <><Copy size={10} className="opacity-50 group-hover:opacity-100" />{value}</>
+    }
+  </button>
+);
+
 /* ── Sort icon ── */
 const SortIcon = ({ col, sortCol, sortDir }) => {
-  if (sortCol !== col) return <ChevronsUpDown size={12} className="text-gray-300 ml-1 shrink-0" />;
+  if (sortCol !== col) return <ChevronsUpDown size={11} className="text-slate-600 ml-1 shrink-0" />;
   return sortDir === 'asc'
-    ? <ChevronUp   size={12} className="text-blue-500 ml-1 shrink-0" />
-    : <ChevronDown size={12} className="text-blue-500 ml-1 shrink-0" />;
+    ? <ChevronUp   size={11} className="text-blue-400 ml-1 shrink-0" />
+    : <ChevronDown size={11} className="text-blue-400 ml-1 shrink-0" />;
 };
 
 /* ── Toast ── */
 const Toast = ({ msg, type, onDone }) => {
   useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, [onDone]);
   return (
-    <div className={`fixed top-5 right-5 z-[999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-white text-sm font-medium
-      ${type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}
-      style={{ animation: 'fadeUp .2s ease-out' }}>
-      {type === 'error' ? <AlertTriangle size={14} /> : <Check size={14} />}
+    <div
+      className={`fixed top-5 right-5 z-[999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-white text-sm font-semibold
+        ${type === 'error' ? 'bg-rose-600 border border-rose-400/30' : 'bg-emerald-600 border border-emerald-400/30'}`}
+      style={{ animation: 'toastIn .25s cubic-bezier(.34,1.56,.64,1) forwards', backdropFilter: 'blur(12px)' }}
+    >
+      {type === 'error' ? <AlertTriangle size={15} /> : <CheckCheck size={15} />}
       {msg}
     </div>
-  );
-};
-
-/* ── Export Buttons ── */
-const ExportBtn = ({ icon: Icon, label, color, onClick }) => {
-  const colors = {
-    gray:  'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-200',
-    red:   'bg-red-50   text-red-600   hover:bg-red-100  border-red-200',
-    green: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
-    teal:  'bg-teal-50  text-teal-700  hover:bg-teal-100  border-teal-200',
-  };
-  return (
-    <button onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition active:scale-95 ${colors[color]}`}>
-      <Icon size={13} />{label}
-    </button>
   );
 };
 
 /* ── Pg Button ── */
 const PgBtn = ({ label, icon: Icon, onClick, disabled }) => (
   <button onClick={onClick} disabled={disabled}
-    className="flex items-center gap-1 px-3 h-8 rounded-lg border border-gray-200 bg-white text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium">
-    {Icon && <Icon size={13} />}{label}
+    className="flex items-center gap-1 px-3 h-8 rounded-lg border border-white/10 bg-white/5 text-xs text-slate-300
+      hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition font-medium">
+    {Icon && <Icon size={12} />}{label}
   </button>
 );
 
+/* ── Stat dot badge ── */
+const Dot = ({ color }) => <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />;
+
 /* ══════════════════════════════════════════════
-   FULL-PAGE OVERLAY — Agent + All Hosts
-   Appears on top of the list, fills entire screen
+   FULL-PAGE OVERLAY — Agent Detail
 ══════════════════════════════════════════════ */
 const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast }) => {
   const [search,    setSearch]    = useState('');
@@ -91,15 +117,14 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
   const [editName,  setEditName]  = useState(false);
   const [agencyName,setAgencyName]= useState(agent.get('agency_name') || '');
   const [removing,  setRemoving]  = useState(null);
+  const { copied, copy } = useCopy();
 
-  /* close on Escape */
   useEffect(() => {
     const fn = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
   }, [onClose]);
 
-  /* prevent body scroll while open */
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -117,7 +142,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     return h + (agent.get('diamonds') || 0);
   }, [members, agent]);
 
-  /* filter */
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return members.filter(m => {
@@ -126,7 +150,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     });
   }, [members, search]);
 
-  /* sort */
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       const ha = a.get('host'), hb = b.get('host');
@@ -147,7 +170,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const paginated  = sorted.slice((page - 1) * pageSize, page * pageSize);
 
-  /* save name */
   const saveName = async () => {
     try {
       agent.set('agency_name', agencyName.trim());
@@ -157,7 +179,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
   };
 
-  /* remove host */
   const doRemoveHost = async (hostId, hostUid) => {
     setRemoving(hostId);
     try {
@@ -170,7 +191,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     finally { setRemoving(null); }
   };
 
-  /* remove agency */
   const removeAgency = async () => {
     if (!window.confirm('Remove this agency and unlink all hosts?')) return;
     try {
@@ -181,7 +201,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
   };
 
-  /* PDF */
   const exportPDF = () => {
     try {
       const doc = new jsPDF('l', 'mm', 'a4');
@@ -218,201 +237,232 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
       m.get('createdAt')?.toLocaleString() || '',
     ]);
     const csv = [['Host UID','Host Name','Live Duration','Audio Duration','Diamonds','Created At'], ...rows].map(r => r.join(',')).join('\n');
-    const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
     a.download = `Agency_${agent.get('uid')}_Hosts.csv`; a.click();
     showToast('CSV exported!');
   };
 
-  const agentName    = agent.get('name')        || '—';
-  const agentUser    = agent.get('username')     || '—';
-  const agentEmail   = agent.get('email')        || '—';
-  const agentFirst   = agent.get('first_name')   || '—';
-  const agentDiam    = agent.get('diamonds')     || 0;
-  const agentUid     = agent.get('uid');
-  const av           = agent.get('avatar');
-  let   avatarUrl    = null;
+  const agentName  = agent.get('name')      || '—';
+  const agentUser  = agent.get('username')  || '—';
+  const agentEmail = agent.get('email')     || '—';
+  const agentFirst = agent.get('first_name')|| '—';
+  const agentDiam  = agent.get('diamonds')  || 0;
+  const agentUid   = agent.get('uid');
+  const agentObjId = agent.id;
+  const av         = agent.get('avatar');
+  let   avatarUrl  = null;
   if (av && typeof av.url === 'function') avatarUrl = av.url();
   else if (av?.url) avatarUrl = av.url;
+  const grad = avatarGrad(agentUser);
 
   return (
-    /* Full-screen overlay — fixed, covers everything, z-50 */
-    <div
-      className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto"
-      style={{ animation: 'overlayIn .25s ease-out forwards' }}
-    >
-      {/* ── Sticky Top Bar ── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-8 py-3.5 flex items-center gap-3">
-          {/* Back button */}
+      <div className="fixed top-0 right-0 bottom-0 z-50 overflow-y-auto left-0 lg:left-64"
+        style={{ background: '#0d1525' }}>
+      {/* Sticky Top Bar */}
+      <div style={{ background: 'rgba(13,21,37,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        className="sticky top-0 z-20">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-8 py-3 flex items-center gap-3">
           <button onClick={onClose}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition active:scale-95 shrink-0">
-            <ArrowLeft size={15} /> Back to Agencies
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-slate-300 text-sm font-medium transition active:scale-95 shrink-0"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <ArrowLeft size={14} /> <span className="hidden sm:inline">Back</span>
           </button>
-
-          {/* Breadcrumb */}
-          <nav className="hidden sm:flex items-center gap-1.5 text-sm text-gray-400 min-w-0">
-            <span>Users</span><span>/</span>
-            <span>Agents</span><span>/</span>
-            <span className="text-gray-800 font-semibold truncate">{agent.get('agency_name') || 'Agent Detail'}</span>
+          <nav className="hidden sm:flex items-center gap-1.5 text-sm text-slate-500 min-w-0">
+            <span>Users</span><span>/</span><span>Agents</span><span>/</span>
+            <span className="text-white font-semibold truncate">{agent.get('agency_name') || 'Agent Detail'}</span>
           </nav>
-
-          {/* Right actions */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <button onClick={exportPDF}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold hover:bg-red-100 transition active:scale-95">
-              <FileText size={13} /> PDF
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition active:scale-95"
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+              <FileText size={12} /> PDF
             </button>
             <button onClick={exportCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 border border-teal-200 text-teal-600 rounded-xl text-xs font-semibold hover:bg-teal-100 transition active:scale-95">
-              <Table size={13} /> CSV
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition active:scale-95"
+              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#34d399' }}>
+              <Table size={12} /> CSV
             </button>
             <button onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:bg-gray-100 transition">
+              className="w-9 h-9 flex items-center justify-center rounded-xl transition"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
               <X size={16} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Page Content ── */}
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-8 py-6 space-y-5">
 
-        {/* ── Agent Profile Banner ── */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 85% 15%, white 0%, transparent 55%)' }} />
+        {/* Agent Banner */}
+        <div className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 40%, #1d4ed8 100%)', border: '1px solid rgba(59,130,246,0.3)' }}>
+
           <div className="relative flex flex-col sm:flex-row sm:items-center gap-5">
+
+            {/* Back button beside avatar */}
+            <button onClick={onClose}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition active:scale-95 shrink-0 group self-start"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08))',
+                border: '1px solid rgba(255,255,255,0.25)',
+                boxShadow: '0 0 16px rgba(0,0,0,0.2)',
+              }}>
+              <ArrowLeft size={15} className="transition-transform group-hover:-translate-x-0.5" />
+              Back
+            </button>
+
             {avatarUrl
-              ? <img src={avatarUrl} alt={agentName} className="w-20 h-20 rounded-2xl object-cover border-2 border-white/30 shrink-0" />
-              : <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-black shrink-0 bg-white/20 border-2 border-white/30 text-white`}>
+              ? <img src={avatarUrl} alt={agentName} className="w-20 h-20 rounded-2xl object-cover border-2 border-white/20 shrink-0" />
+              : <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-black shrink-0 bg-gradient-to-br ${grad} border-2 border-white/20 text-white shadow-xl`}>
                   {getInitials(agentName)}
                 </div>
             }
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-black truncate">{agentName}</h1>
-              <p className="text-blue-200 mt-0.5">@{agentUser} · UID <span className="font-bold text-white">#{agentUid}</span></p>
-              {agentEmail !== '—' && <p className="text-blue-100 text-sm mt-1">{agentEmail}</p>}
+              <h1 className="text-2xl font-black text-white truncate">{agentName}</h1>
+              <p className="text-blue-200 mt-0.5 text-sm">@{agentUser} · UID <span className="font-bold text-white">#{agentUid}</span></p>
+              {agentEmail !== '—' && <p className="text-blue-100/80 text-xs mt-1">{agentEmail}</p>}
             </div>
-            <div className="shrink-0 flex flex-col sm:items-end gap-2">
-              <div className="inline-flex items-center gap-1.5 bg-white/20 border border-white/30 px-3 py-1.5 rounded-full text-sm font-semibold">
-                <Building2 size={14} /> {agent.get('agency_name') || 'No Agency Name'}
+            <div className="shrink-0 flex flex-wrap gap-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold text-white"
+                style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                <Building2 size={13} /> {agent.get('agency_name') || 'No Agency Name'}
               </div>
-              <div className="inline-flex items-center gap-1.5 bg-emerald-400/20 border border-emerald-300/30 px-3 py-1.5 rounded-full text-sm font-semibold text-emerald-100">
-                <Gem size={14} /> {fmt(agentDiam)} Diamonds
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold text-emerald-200"
+                style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                <Gem size={13} /> {fmt(agentDiam)} Diamonds
               </div>
+
+
+
             </div>
           </div>
         </div>
 
-        {/* ── Top Row: Agent Info Card + Stat Cards ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Info + Stats Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Agent Info */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-gray-100">
-              <User size={18} className="text-blue-500" />
-              <h2 className="font-bold text-blue-600 text-base">Agent Info</h2>
+          {/* Agent Info Card */}
+          <div className="lg:col-span-2 rounded-2xl overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="flex items-center gap-2.5 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.2)' }}>
+                <User size={14} className="text-blue-400" />
+              </div>
+              <h2 className="font-bold text-blue-400 text-sm tracking-wide uppercase">Agent Info</h2>
             </div>
             <div className="px-6 py-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-4">
-                {/* Left */}
-                <div className="space-y-4">
-                  <InfoLine label="UID:"      value={agentUid} />
-                  <InfoLine label="Username:" value={`@${agentUser}`} />
-                  <InfoLine label="Email:"    value={agentEmail} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
+                <div className="space-y-3.5">
+                  <DetailRow label="Object ID">
+                    <CopyChip value={agentObjId} label="Object ID" copyKey={`objid-${agentObjId}`} copied={copied} copy={copy} />
+                  </DetailRow>
+                  <DetailRow label="UID">
+                    <CopyChip value={agentUid} label="UID" copyKey={`uid-${agentUid}`} copied={copied} copy={copy} />
+                  </DetailRow>
+                  <DetailRow label="Username"><span className="text-slate-300 text-sm">@{agentUser}</span></DetailRow>
+                  <DetailRow label="Email"><span className="text-slate-300 text-sm truncate">{agentEmail}</span></DetailRow>
                 </div>
-                {/* Right */}
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-sm font-semibold text-gray-700">Agency Name:</span>
+                <div className="space-y-3.5">
+                  <DetailRow label="Agency Name">
                     {editName ? (
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <input autoFocus value={agencyName}
                           onChange={e => setAgencyName(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditName(false); }}
-                          className="flex-1 px-3 py-1.5 border border-blue-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          className="px-3 py-1 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
+                          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(59,130,246,0.5)' }}
                         />
-                        <button onClick={saveName} className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"><Check size={13} /></button>
+                        <button onClick={saveName} className="p-1.5 rounded-lg transition" style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399' }}><Check size={12} /></button>
                         <button onClick={() => { setEditName(false); setAgencyName(agent.get('agency_name') || ''); }}
-                          className="p-1.5 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition"><X size={13} /></button>
+                          className="p-1.5 rounded-lg transition" style={{ background: 'rgba(255,255,255,0.06)', color: '#94a3b8' }}><X size={12} /></button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-gray-800">{agent.get('agency_name') || '—'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-300 text-sm">{agent.get('agency_name') || '—'}</span>
                         <button onClick={() => setEditName(true)}
-                          className="flex items-center gap-1 px-2 py-1 bg-blue-50 border border-blue-200 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition">
-                          <Pencil size={10} /> Edit
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition"
+                          style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', color: '#60a5fa' }}>
+                          <Pencil size={9} /> Edit
                         </button>
                       </div>
                     )}
-                  </div>
-                  <InfoLine label="First Name:"     value={agentFirst} />
-                  <InfoLine label="Agent Diamonds:" value={fmt(agentDiam)} accent="text-emerald-600 font-bold" />
+                  </DetailRow>
+                  <DetailRow label="First Name"><span className="text-slate-300 text-sm">{agentFirst}</span></DetailRow>
+                  <DetailRow label="Diamonds"><span className="text-emerald-400 font-bold text-sm">{fmt(agentDiam)}</span></DetailRow>
                 </div>
               </div>
-              {/* Remove Agency */}
-              <div className="mt-5 pt-4 border-t border-gray-100">
+              <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <button onClick={removeAgency}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition active:scale-95">
-                  <X size={15} /> Remove Agency
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition active:scale-95"
+                  style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
+                  <X size={14} /> Remove Agency
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Stat Cards */}
+          {/* Stat Boxes */}
           <div className="flex flex-col gap-4">
-            <StatBox label="Total Hosts"         value={totalHosts}         accent="border-l-emerald-500" bg="from-emerald-50 to-white" />
-            <StatBox label="Total Agency Earning" value={fmt(totalEarning)}  accent="border-l-cyan-500"    bg="from-cyan-50 to-white" />
+            <OverlayStatBox label="Total Hosts" value={totalHosts} icon={Users} color={EMERALD} glow="rgba(16,185,129,0.15)" />
+            <OverlayStatBox label="Agency Earning" value={fmt(totalEarning)} icon={Gem} color={CYAN} glow="rgba(6,182,212,0.15)" />
           </div>
         </div>
 
-        {/* ── Hosts History Table ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Hosts History Table */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
 
-          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-gray-100">
-            <Clock size={18} className="text-blue-500" />
-            <h2 className="font-bold text-blue-600 text-base">Hosts History</h2>
+          <div className="flex items-center gap-2.5 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.2)' }}>
+              <Clock size={14} className="text-cyan-400" />
+            </div>
+            <h2 className="font-bold text-cyan-400 text-sm tracking-wide uppercase">Hosts History</h2>
+            <span className="ml-auto text-xs text-slate-500 font-mono">{sorted.length} records</span>
           </div>
 
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-6 py-3.5 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-6 py-3.5"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.15)' }}>
             <div className="flex items-center gap-2 flex-wrap">
-              <ExportBtn icon={Printer}         label="Print"  color="gray"  onClick={() => window.print()} />
-              <ExportBtn icon={FileText}        label="PDF"    color="red"   onClick={exportPDF} />
-              <ExportBtn icon={FileSpreadsheet} label="Excel"  color="green" onClick={exportCSV} />
-              <ExportBtn icon={Table}           label="CSV"    color="teal"  onClick={exportCSV} />
+              <ExportBtnDark icon={Printer}         label="Print"  onClick={() => window.print()} />
+              <ExportBtnDark icon={FileText}        label="PDF"    onClick={exportPDF} accent="red" />
+              <ExportBtnDark icon={FileSpreadsheet} label="Excel"  onClick={exportCSV} accent="green" />
+              <ExportBtnDark icon={Table}           label="CSV"    onClick={exportCSV} accent="teal" />
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2 text-sm text-slate-400">
                 <span>Show</span>
                 <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-                  className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
-                  {[10, 25, 50, 100].map(n => <option key={n}>{n}</option>)}
+                  className="px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-lg"
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  {[10, 25, 50, 100].map(n => <option key={n} value={n} style={{ background: '#0d1525' }}>{n}</option>)}
                 </select>
                 <span>entries</span>
               </div>
               <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-                  placeholder="Search…"
-                  className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 w-44" />
+                  placeholder="Search hosts…"
+                  className="pl-8 pr-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-lg w-44"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
               </div>
             </div>
           </div>
 
           {/* Table */}
           {membersLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-              <p className="text-sm text-gray-400">Loading hosts…</p>
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+              <p className="text-sm text-slate-500">Loading hosts…</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[780px]">
+              <table className="w-full text-sm min-w-[820px]">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
+                  <tr style={{ background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     {[
-                      { label: 'Host UID',       col: 'uid'       },
+                      { label: 'Host UID',      col: 'uid'       },
+                      { label: 'Object ID',      col: null        },
                       { label: 'Host Name',      col: 'name'      },
                       { label: 'Live Duration',  col: 'liveDur'   },
                       { label: 'Audio Duration', col: 'audioDur'  },
@@ -421,7 +471,7 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
                       { label: 'Action',         col: null        },
                     ].map(({ label, col }) => (
                       <th key={label} onClick={() => col && toggleSort(col)}
-                        className={`px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap select-none ${col ? 'cursor-pointer hover:bg-gray-100 transition' : ''}`}>
+                        className={`px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap select-none ${col ? 'cursor-pointer hover:text-slate-200 transition' : ''}`}>
                         <div className="flex items-center">
                           {label}
                           {col && <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />}
@@ -430,39 +480,52 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {paginated.length === 0 ? (
-                    <tr><td colSpan={7} className="px-5 py-16 text-center text-gray-400 text-sm">
+                    <tr><td colSpan={8} className="px-5 py-16 text-center text-slate-500 text-sm">
                       {search ? `No hosts match "${search}"` : 'No host history found.'}
                     </td></tr>
-                  ) : paginated.map(m => {
+                  ) : paginated.map((m, i) => {
                     const h    = m.get('host');
                     const hId  = h?.id;
                     const hUid = h?.get('uid');
                     const hNm  = h?.get('name') || 'N/A';
                     const hDm  = h?.get('diamonds') || 0;
-                    const lD   = m.get('livestream_duration_day')   || 0;
-                    const lM   = m.get('livestream_duration_minute') || 0;
-                    const aD   = m.get('audio_duration_day')   || 0;
-                    const aM   = m.get('audio_duration_minute') || 0;
+                    const lD   = m.get('livestream_duration_day')    || 0;
+                    const lM   = m.get('livestream_duration_minute')  || 0;
+                    const aD   = m.get('audio_duration_day')    || 0;
+                    const aM   = m.get('audio_duration_minute')  || 0;
                     const ca   = m.get('createdAt');
                     return (
-                      <tr key={m.id} className="hover:bg-blue-50/30 transition-colors">
-                        <td className="px-5 py-3.5 font-mono font-semibold text-gray-700">{hUid}</td>
-                        <td className="px-5 py-3.5 font-medium text-gray-800">{hNm}</td>
-                        <td className="px-5 py-3.5 text-gray-600">{fmtDur(lD, lM)}</td>
-                        <td className="px-5 py-3.5 text-gray-600">{fmtDur(aD, aM)}</td>
-                        <td className="px-5 py-3.5 font-semibold text-emerald-700">{fmt(hDm)}</td>
-                        <td className="px-5 py-3.5 text-gray-500 text-xs whitespace-nowrap">
+                      <tr key={m.id}
+                        className="transition-colors"
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.07)'}
+                        onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)'}
+                      >
+                        <td className="px-4 py-3.5">
+                          <CopyChip value={hUid} label="Host UID" copyKey={`huid-${hUid}`} copied={copied} copy={copy} />
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <CopyChip value={hId || '—'} label="Object ID" copyKey={`hobj-${hId}`} copied={copied} copy={copy} />
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-slate-200">{hNm}</td>
+                        <td className="px-4 py-3.5 text-slate-400 text-xs">{fmtDur(lD, lM)}</td>
+                        <td className="px-4 py-3.5 text-slate-400 text-xs">{fmtDur(aD, aM)}</td>
+                        <td className="px-4 py-3.5">
+                          <span className="font-bold text-emerald-400 text-sm">{fmt(hDm)}</span>
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
                           {ca ? ca.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).replace(',',' ') : '—'}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-4 py-3.5">
                           <button onClick={() => doRemoveHost(hId, hUid)} disabled={removing === hId}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-60 whitespace-nowrap">
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                            style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}>
                             {removing === hId
-                              ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                              : <X size={12} />}
-                            Remove Host
+                              ? <div className="w-3 h-3 border border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                              : <X size={11} />}
+                            Remove
                           </button>
                         </td>
                       </tr>
@@ -473,44 +536,49 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
             </div>
           )}
 
-          {/* Footer */}
+          {/* Pagination */}
           {!membersLoading && sorted.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/40">
-              <p className="text-sm text-gray-500">
-                Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, sorted.length)} of {sorted.length} entries
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.1)' }}>
+              <p className="text-sm text-slate-500">
+                Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, sorted.length)} of {sorted.length}
               </p>
               <div className="flex items-center gap-1.5">
-                <PgBtn label="Previous" onClick={() => setPage(p => Math.max(1, p-1))}         disabled={page===1} />
+                <PgBtn label="Prev" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1} />
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const p = totalPages<=5 ? i+1 : page<=3 ? i+1 : page>=totalPages-2 ? totalPages-4+i : page-2+i;
                   return (
                     <button key={p} onClick={() => setPage(p)}
-                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${p===page ? 'bg-blue-600 text-white shadow-sm' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                      className="w-8 h-8 rounded-lg text-sm font-medium transition-all"
+                      style={p===page
+                        ? { background: '#3b82f6', color: '#fff', boxShadow: '0 0 12px rgba(59,130,246,0.4)' }
+                        : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
                       {p}
                     </button>
                   );
                 })}
-                <PgBtn label="Next"     onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages} />
+                <PgBtn label="Next" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages} />
               </div>
             </div>
           )}
         </div>
 
-        {/* Bottom back button */}
         <div className="flex justify-center pb-6">
           <button onClick={onClose}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            <ArrowLeft size={15} /> Back to Agencies List
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-medium transition"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+            <ArrowLeft size={14} /> Back to Agencies
           </button>
         </div>
       </div>
 
       <style>{`
-        @keyframes overlayIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes overlayIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
     </div>
   );
 };
+
 /* ══════════════════════════════════════════════
    MAIN — AGENCIES LIST PAGE
 ══════════════════════════════════════════════ */
@@ -525,26 +593,25 @@ export default function AgenciesList() {
   const [toast,         setToast]         = useState(null);
   const [sortCol,       setSortCol]       = useState('uid');
   const [sortDir,       setSortDir]       = useState('asc');
+  const [viewMode,      setViewMode]      = useState('list'); // 'list' | 'card'
 
-  /* drawer state */
   const [selectedAgent,  setSelectedAgent]  = useState(null);
   const [drawerMembers,  setDrawerMembers]  = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
 
   const searchRef = useRef();
+  const { copied, copy } = useCopy();
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  /* debounce */
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedQ(search); setPage(1); }, 420);
     return () => clearTimeout(t);
   }, [search]);
 
-  /* fetch agents */
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     try {
@@ -563,12 +630,10 @@ export default function AgenciesList() {
       dq.limit(pageSize);
       dq.skip((page - 1) * pageSize);
       dq.select(['uid', 'name', 'username', 'email', 'agency_name', 'first_name', 'diamonds', 'avatar', 'createdAt']);
-
       const [results, count] = await Promise.all([
         dq.find({ useMasterKey: true }),
         cq.count({ useMasterKey: true }),
       ]);
-
       setAgents(results);
       setTotalCount(count);
     } catch (e) {
@@ -582,14 +647,13 @@ export default function AgenciesList() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  /* sort agents client-side (already paged from server) */
   const sortedAgents = useMemo(() => {
     return [...agents].sort((a, b) => {
       let av, bv;
-      if      (sortCol === 'uid')         { av = a.get('uid') || 0;          bv = b.get('uid') || 0; }
-      else if (sortCol === 'name')        { av = a.get('name') || '';         bv = b.get('name') || ''; }
-      else if (sortCol === 'agencyName')  { av = a.get('agency_name') || '';  bv = b.get('agency_name') || ''; }
-      else if (sortCol === 'diamonds')    { av = a.get('diamonds') || 0;      bv = b.get('diamonds') || 0; }
+      if      (sortCol === 'uid')        { av = a.get('uid') || 0;         bv = b.get('uid') || 0; }
+      else if (sortCol === 'name')       { av = a.get('name') || '';        bv = b.get('name') || ''; }
+      else if (sortCol === 'agencyName') { av = a.get('agency_name') || ''; bv = b.get('agency_name') || ''; }
+      else if (sortCol === 'diamonds')   { av = a.get('diamonds') || 0;     bv = b.get('diamonds') || 0; }
       else return 0;
       if (av < bv) return sortDir === 'asc' ? -1 : 1;
       if (av > bv) return sortDir === 'asc' ?  1 : -1;
@@ -602,7 +666,6 @@ export default function AgenciesList() {
     else { setSortCol(col); setSortDir('asc'); }
   };
 
-  /* open drawer: fetch this agent's members */
   const openDrawer = async (agentObj) => {
     setSelectedAgent(agentObj);
     setDrawerMembers([]);
@@ -622,12 +685,17 @@ export default function AgenciesList() {
   const closeDrawer = () => {
     setSelectedAgent(null);
     setDrawerMembers([]);
-    fetchAgents(); // refresh list after possible changes
+    fetchAgents();
   };
 
-  /* ══ RENDER ══ */
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#0d1525', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+
+      {/* Subtle grid overlay */}
+      {/* <div className="fixed inset-0 pointer-events-none" style={{
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)',
+        backgroundSize: '40px 40px'
+      }} /> */}
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
@@ -641,209 +709,335 @@ export default function AgenciesList() {
         />
       )}
 
-      {/* ── Page Header ── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Building2 size={20} className="text-blue-500" /> Agencies
-            </h1>
-            <nav className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
-              <span>Users</span><span>/</span>
-              <span className="text-gray-700 font-medium">All Agents</span>
-            </nav>
+      {/* Page Header */}
+      <div className="sticky top-0 z-30" style={{ background: 'rgba(13,21,37,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', boxShadow: '0 0 20px rgba(59,130,246,0.3)' }}>
+              <Building2 size={17} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-white">Agencies</h1>
+              <nav className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
+                <span>Users</span><span>/</span><span className="text-slate-300">All Agents</span>
+              </nav>
+            </div>
           </div>
-          <div className="sm:ml-auto flex items-center gap-2">
+
+          <div className="sm:ml-auto flex items-center gap-2 flex-wrap">
+            {/* View toggle */}
+            <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+              <button
+                onClick={() => setViewMode('list')}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition"
+                style={viewMode === 'list' ? { background: '#3b82f6', color: '#fff' } : { color: '#64748b' }}>
+                <LayoutList size={13} /> <span className="hidden sm:inline">List</span>
+              </button>
+              <button
+                onClick={() => setViewMode('card')}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition"
+                style={viewMode === 'card' ? { background: '#3b82f6', color: '#fff' } : { color: '#64748b' }}>
+                <LayoutGrid size={13} /> <span className="hidden sm:inline">Card</span>
+              </button>
+            </div>
+
             <button onClick={fetchAgents} disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50 active:scale-95">
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 active:scale-95 text-slate-300"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-6 space-y-5">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5 relative">
 
-        {/* ── Summary Stat Cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <MiniStat icon={Building2} label="Total Agencies" value={totalCount} color="blue" />
-          <MiniStat icon={Users}     label="On This Page"   value={agents.length} color="emerald" />
-          <MiniStat icon={Hash}      label="Total Pages"    value={totalPages}   color="violet" />
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <MiniStat icon={Building2}  label="Total Agencies" value={totalCount}    color={ACCENT}  glow="rgba(59,130,246,0.15)" />
+          <MiniStat icon={Users}      label="This Page"      value={agents.length} color={EMERALD} glow="rgba(16,185,129,0.15)" />
+          <MiniStat icon={Hash}       label="Total Pages"    value={totalPages}    color={VIOLET}  glow="rgba(139,92,246,0.15)" />
+          <MiniStat icon={Activity}   label="Current Page"   value={page}          color={CYAN}    glow="rgba(6,182,212,0.15)" />
         </div>
 
-        {/* ── Main Table Card ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Main Table Card */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
 
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-4"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.15)' }}>
+            <div className="flex items-center gap-2 text-sm text-slate-400">
               <span>Show</span>
               <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-                className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
-                {[10, 25, 50, 100].map(n => <option key={n}>{n}</option>)}
+                className="px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-lg"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {[10, 25, 50, 100].map(n => <option key={n} value={n} style={{ background: '#0d1525' }}>{n}</option>)}
               </select>
               <span>entries</span>
             </div>
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 ref={searchRef}
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search by name or UID…"
-                className="pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-gray-50 focus:bg-white transition w-52"
+                placeholder="Search name or UID…"
+                className="pl-9 pr-9 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-xl w-52 transition"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               />
               {search && (
                 <button onClick={() => { setSearch(''); searchRef.current?.focus(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X size={13} />
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                  <X size={12} />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[780px]">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  {[
-                    { label: '#',            col: null },
-                    { label: 'Agent',        col: 'name' },
-                    { label: 'UID',          col: 'uid' },
-                    { label: 'Agency Name',  col: 'agencyName' },
-                    { label: 'Email',        col: null },
-                    { label: 'First Name',   col: null },
-                    { label: 'Diamonds',     col: 'diamonds' },
-                    { label: 'Joined',       col: null },
-                    { label: 'Action',       col: null },
-                  ].map(({ label, col }) => (
-                    <th key={label} onClick={() => col && toggleSort(col)}
-                      className={`px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap select-none ${col ? 'cursor-pointer hover:bg-gray-100 transition' : ''}`}>
-                      <div className="flex items-center">
-                        {label}
-                        {col && <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className="px-5 py-4">
-                          <div className="h-4 bg-gray-100 rounded" style={{ width: `${45 + (j * 11) % 40}%` }} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : sortedAgents.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-5 py-16 text-center">
-                      <Building2 size={32} className="mx-auto mb-2 text-gray-200" />
-                      <p className="text-sm text-gray-400">No agencies found{search ? ` for "${search}"` : ''}.</p>
-                    </td>
+          {/* ── LIST VIEW ── */}
+          {viewMode === 'list' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[900px]">
+                <thead>
+                  <tr style={{ background: 'rgba(0,0,0,0.25)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    {[
+                      { label: '#',           col: null },
+                      { label: 'Agent',       col: 'name' },
+                      { label: 'UID / Obj ID',col: 'uid' },
+                      { label: 'Agency',      col: 'agencyName' },
+                      { label: 'Email',       col: null },
+                      { label: 'First Name',  col: null },
+                      { label: 'Diamonds',    col: 'diamonds' },
+                      { label: 'Joined',      col: null },
+                      { label: 'Action',      col: null },
+                    ].map(({ label, col }) => (
+                      <th key={label} onClick={() => col && toggleSort(col)}
+                        className={`px-4 py-3.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap select-none ${col ? 'cursor-pointer hover:text-slate-300 transition' : ''}`}>
+                        <div className="flex items-center">
+                          {label}
+                          {col && <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />}
+                        </div>
+                      </th>
+                    ))}
                   </tr>
-                ) : sortedAgents.map((agent, idx) => {
-                  const av = agent.get('avatar');
-                  let avatarUrl = null;
-                  if (av && typeof av.url === 'function') avatarUrl = av.url();
-                  else if (av?.url) avatarUrl = av.url;
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        {Array.from({ length: 9 }).map((_, j) => (
+                          <td key={j} className="px-4 py-4">
+                            <div className="h-3.5 rounded-md animate-pulse" style={{ background: 'rgba(255,255,255,0.06)', width: `${40 + (j * 11) % 40}%` }} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : sortedAgents.length === 0 ? (
+                    <tr><td colSpan={9} className="px-5 py-16 text-center">
+                      <Building2 size={36} className="mx-auto mb-3 text-slate-700" />
+                      <p className="text-sm text-slate-500">No agencies found{search ? ` for "${search}"` : ''}.</p>
+                    </td></tr>
+                  ) : sortedAgents.map((agent, idx) => {
+                    const av = agent.get('avatar');
+                    let avatarUrl = null;
+                    if (av && typeof av.url === 'function') avatarUrl = av.url();
+                    else if (av?.url) avatarUrl = av.url;
+                    const name      = agent.get('name')        || '—';
+                    const username  = agent.get('username')    || '—';
+                    const agUid     = agent.get('uid');
+                    const agObjId   = agent.id;
+                    const agName    = agent.get('agency_name') || '—';
+                    const email     = agent.get('email')       || '—';
+                    const firstName = agent.get('first_name')  || '—';
+                    const diamonds  = agent.get('diamonds')    || 0;
+                    const createdAt = agent.get('createdAt');
+                    const grad      = avatarGrad(username);
 
-                  const name       = agent.get('name')         || '—';
-                  const username   = agent.get('username')     || '—';
-                  const agUid      = agent.get('uid');
-                  const agName     = agent.get('agency_name')  || '—';
-                  const email      = agent.get('email')        || '—';
-                  const firstName  = agent.get('first_name')   || '—';
-                  const diamonds   = agent.get('diamonds')     || 0;
-                  const createdAt  = agent.get('createdAt');
+                    return (
+                      <tr key={agent.id}
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
+                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}
+                        className="transition-colors">
+                        <td className="px-4 py-4 text-xs text-slate-600 font-mono">{(page-1)*pageSize+idx+1}</td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            {avatarUrl
+                              ? <img src={avatarUrl} alt={name} className="w-9 h-9 rounded-full object-cover shrink-0" style={{ border: '2px solid rgba(59,130,246,0.3)' }} />
+                              : <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 bg-gradient-to-br ${grad} text-white shadow-lg`}>{getInitials(name)}</div>
+                            }
+                            <div className="min-w-0">
+                              <p className="font-semibold text-white whitespace-nowrap truncate text-sm">{name}</p>
+                              <p className="text-xs text-slate-500">@{username}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-col gap-1">
+                            <CopyChip value={agUid} label="UID" copyKey={`uid-${agent.id}`} copied={copied} copy={copy} />
+                            <CopyChip value={agObjId} label="Object ID" copyKey={`oid-${agent.id}`} copied={copied} copy={copy} />
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 size={11} className="text-slate-600 shrink-0" />
+                            <span className="text-slate-300 font-medium text-sm truncate max-w-[130px]">{agName}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-500 text-xs truncate max-w-[150px]">{email}</td>
+                        <td className="px-4 py-4 text-slate-400 text-sm">{firstName}</td>
+                        <td className="px-4 py-4">
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-400 text-sm">
+                            <Gem size={11} className="text-emerald-500" />{fmt(diamonds)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
+                          {createdAt?.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) || '—'}
+                        </td>
+                        <td className="px-4 py-4">
+                          <button onClick={() => openDrawer(agent)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-95 whitespace-nowrap"
+                            style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', boxShadow: '0 2px 12px rgba(59,130,246,0.3)' }}>
+                            <Eye size={12} /> View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                  return (
-                    <tr key={agent.id} className="hover:bg-blue-50/30 transition-colors group">
-                      {/* # */}
-                      <td className="px-5 py-4 text-xs text-gray-400 font-mono">
-                        {(page - 1) * pageSize + idx + 1}
-                      </td>
-                      {/* Agent */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
+          {/* ── CARD VIEW ── */}
+          {viewMode === 'card' && (
+            <div className="p-4 sm:p-6">
+              {loading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="rounded-2xl p-5 animate-pulse" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-11 h-11 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 rounded-md" style={{ background: 'rgba(255,255,255,0.08)', width: '70%' }} />
+                          <div className="h-2.5 rounded-md" style={{ background: 'rgba(255,255,255,0.05)', width: '50%' }} />
+                        </div>
+                      </div>
+                      {[80, 60, 90].map((w, j) => (
+                        <div key={j} className="h-3 rounded mb-2.5" style={{ background: 'rgba(255,255,255,0.05)', width: `${w}%` }} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : sortedAgents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Building2 size={40} className="mb-3 text-slate-700" />
+                  <p className="text-slate-500">No agencies found{search ? ` for "${search}"` : ''}.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {sortedAgents.map((agent, idx) => {
+                    const av = agent.get('avatar');
+                    let avatarUrl = null;
+                    if (av && typeof av.url === 'function') avatarUrl = av.url();
+                    else if (av?.url) avatarUrl = av.url;
+                    const name      = agent.get('name')        || '—';
+                    const username  = agent.get('username')    || '—';
+                    const agUid     = agent.get('uid');
+                    const agObjId   = agent.id;
+                    const agName    = agent.get('agency_name') || '—';
+                    const email     = agent.get('email')       || '—';
+                    const firstName = agent.get('first_name')  || '—';
+                    const diamonds  = agent.get('diamonds')    || 0;
+                    const createdAt = agent.get('createdAt');
+                    const grad      = avatarGrad(username);
+
+                    return (
+                      <div key={agent.id}
+                        className="rounded-2xl p-5 flex flex-col gap-4 group transition-all duration-200 cursor-pointer"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                      >
+                        {/* Card Header */}
+                        <div className="flex items-start gap-3">
                           {avatarUrl
-                            ? <img src={avatarUrl} alt={name} className="w-9 h-9 rounded-full object-cover border-2 border-blue-100 shrink-0" />
-                            : <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${avatarColor(username)}`}>{getInitials(name)}</div>
+                            ? <img src={avatarUrl} alt={name} className="w-12 h-12 rounded-xl object-cover shrink-0" style={{ border: '2px solid rgba(59,130,246,0.3)' }} />
+                            : <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black shrink-0 bg-gradient-to-br ${grad} text-white shadow-lg`}>{getInitials(name)}</div>
                           }
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 whitespace-nowrap truncate">{name}</p>
-                            <p className="text-xs text-gray-400">@{username}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-white text-sm truncate">{name}</p>
+                            <p className="text-xs text-slate-500">@{username}</p>
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <Building2 size={10} className="text-slate-600" />
+                              <span className="text-xs text-slate-400 truncate">{agName}</span>
+                            </div>
                           </div>
                         </div>
-                      </td>
-                      {/* UID */}
-                      <td className="px-5 py-4">
-                        <code className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-md font-mono font-bold">{agUid}</code>
-                      </td>
-                      {/* Agency Name */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 size={13} className="text-gray-400 shrink-0" />
-                          <span className="text-gray-800 font-medium truncate max-w-[140px]">{agName}</span>
+
+                        {/* IDs row */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <CopyChip value={agUid} label="UID" copyKey={`cuid-${agent.id}`} copied={copied} copy={copy} />
+                          <CopyChip value={agObjId} label="Object ID" copyKey={`coid-${agent.id}`} copied={copied} copy={copy} />
                         </div>
-                      </td>
-                      {/* Email */}
-                      <td className="px-5 py-4 text-gray-500 text-xs truncate max-w-[160px]">{email}</td>
-                      {/* First Name */}
-                      <td className="px-5 py-4 text-gray-600 text-sm">{firstName}</td>
-                      {/* Diamonds */}
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                          <Gem size={12} className="text-emerald-400" />{fmt(diamonds)}
-                        </span>
-                      </td>
-                      {/* Joined */}
-                      <td className="px-5 py-4 text-xs text-gray-400 whitespace-nowrap">
-                        {createdAt?.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) || '—'}
-                      </td>
-                      {/* Action */}
-                      <td className="px-5 py-4">
-                        <button
-                          onClick={() => openDrawer(agent)}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition active:scale-95 whitespace-nowrap shadow-sm shadow-blue-200"
-                        >
+
+                        {/* Info rows */}
+                        <div className="space-y-2 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">First Name</span>
+                            <span className="text-slate-300 font-medium">{firstName}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">Email</span>
+                            <span className="text-slate-400 text-right truncate max-w-[140px]">{email}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">Diamonds</span>
+                            <span className="font-bold text-emerald-400 flex items-center gap-1"><Gem size={10} />{fmt(diamonds)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Joined</span>
+                            <span className="text-slate-500">{createdAt?.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) || '—'}</span>
+                          </div>
+                        </div>
+
+                        <button onClick={() => openDrawer(agent)}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition active:scale-95 mt-auto"
+                          style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', boxShadow: '0 2px 12px rgba(59,130,246,0.25)' }}>
                           <Eye size={13} /> View Info
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Footer pagination */}
+          {/* Pagination */}
           {!loading && agents.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/40">
-              <p className="text-sm text-gray-500">
-                Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} of {totalCount.toLocaleString()} entries
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.1)' }}>
+              <p className="text-sm text-slate-500">
+                Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, totalCount)} of {totalCount.toLocaleString()}
               </p>
-              <div className="flex items-center gap-1.5">
-                <PgBtn label="Previous" onClick={() => setPage(p => Math.max(1, p - 1))}       disabled={page === 1} />
+              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                <PgBtn label="Previous" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1} />
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const p = totalPages <= 5 ? i + 1
-                          : page <= 3 ? i + 1
-                          : page >= totalPages - 2 ? totalPages - 4 + i
-                          : page - 2 + i;
+                  const p = totalPages<=5 ? i+1 : page<=3 ? i+1 : page>=totalPages-2 ? totalPages-4+i : page-2+i;
                   return (
                     <button key={p} onClick={() => setPage(p)}
-                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${p === page ? 'bg-blue-600 text-white shadow-sm' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                      className="w-8 h-8 rounded-lg text-sm font-medium transition-all"
+                      style={p===page
+                        ? { background: '#3b82f6', color: '#fff', boxShadow: '0 0 16px rgba(59,130,246,0.4)' }
+                        : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748b' }}>
                       {p}
                     </button>
                   );
                 })}
-                <PgBtn label="Next"     onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} />
+                <PgBtn label="Next" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages} />
               </div>
             </div>
           )}
@@ -851,41 +1045,61 @@ export default function AgenciesList() {
       </div>
 
       <style>{`
-        @keyframes fadeUp      { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes slideInRight{ from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes toastIn  { from{opacity:0;transform:translateY(-10px) scale(.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes overlayIn{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
     </div>
   );
 }
 
 /* ── Shared tiny components ── */
-const InfoLine = ({ label, value, accent }) => (
-  <div className="flex flex-wrap items-baseline gap-2">
-    <span className="text-sm font-semibold text-gray-700 shrink-0">{label}</span>
-    <span className={`text-sm ${accent || 'text-gray-800'}`}>{value}</span>
+const DetailRow = ({ label, children }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0 w-24">{label}</span>
+    <div className="flex-1">{children}</div>
   </div>
 );
 
-const StatBox = ({ label, value, accent, bg }) => (
-  <div className={`flex-1 bg-gradient-to-r ${bg} rounded-2xl border-l-4 ${accent} border border-gray-200 shadow-sm px-6 py-5`}>
-    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{label}</p>
-    <p className="text-4xl font-black text-gray-800">{value}</p>
-  </div>
-);
-
-const MiniStat = ({ icon: Icon, label, value, color }) => {
-  const c = {
-    blue:    { bg: 'bg-blue-50 border-blue-100',    icon: 'bg-blue-100 text-blue-600',    val: 'text-blue-700'    },
-    emerald: { bg: 'bg-emerald-50 border-emerald-100', icon: 'bg-emerald-100 text-emerald-600', val: 'text-emerald-700' },
-    violet:  { bg: 'bg-violet-50 border-violet-100', icon: 'bg-violet-100 text-violet-600', val: 'text-violet-700'  },
-  }[color] || {};
-  return (
-    <div className={`rounded-2xl border p-4 flex items-center gap-3 ${c.bg}`}>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.icon}`}><Icon size={18} /></div>
-      <div>
-        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">{label}</p>
-        <p className={`text-xl font-bold mt-0.5 ${c.val}`}>{value?.toLocaleString()}</p>
-      </div>
+const OverlayStatBox = ({ label, value, icon: Icon, color, glow }) => (
+  <div className="flex-1 rounded-2xl px-5 py-5 flex items-center gap-4"
+    style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid rgba(255,255,255,0.07)`, boxShadow: `inset 0 0 40px ${glow}` }}>
+    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+      style={{ background: glow, border: `1px solid ${color}30` }}>
+      <Icon size={20} style={{ color }} />
     </div>
+    <div>
+      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</p>
+      <p className="text-3xl font-black mt-0.5" style={{ color }}>{value}</p>
+    </div>
+  </div>
+);
+
+const MiniStat = ({ icon: Icon, label, value, color, glow }) => (
+  <div className="rounded-2xl p-4 flex items-center gap-3"
+    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: `inset 0 0 30px ${glow}` }}>
+    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+      style={{ background: glow, border: `1px solid ${color}30` }}>
+      <Icon size={16} style={{ color }} />
+    </div>
+    <div className="min-w-0">
+      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">{label}</p>
+      <p className="text-xl font-black mt-0.5" style={{ color }}>{Number(value).toLocaleString()}</p>
+    </div>
+  </div>
+);
+
+const ExportBtnDark = ({ icon: Icon, label, onClick, accent }) => {
+  const styles = {
+    red:   { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   color: '#f87171' },
+    green: { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.3)',   color: '#4ade80' },
+    teal:  { bg: 'rgba(20,184,166,0.12)',  border: 'rgba(20,184,166,0.3)',  color: '#2dd4bf' },
+  };
+  const s = styles[accent] || { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)', color: '#94a3b8' };
+  return (
+    <button onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95"
+      style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>
+      <Icon size={12} />{label}
+    </button>
   );
 };

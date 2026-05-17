@@ -38,13 +38,13 @@ const Avatar = ({ name = '?' }) => {
 };
 
 const Badge = ({ children, variant = 'default' }) => {
-  const styles = {
-    default: 'bg-gray-100 text-gray-600',
-    blue:    'bg-sky-100 text-sky-700',
-    green:   'bg-emerald-100 text-emerald-700',
-    amber:   'bg-amber-100 text-amber-700',
-    violet:  'bg-violet-100 text-violet-700',
-  };
+    const styles = {
+      default: 'bg-gray-800 text-gray-300',
+      blue:    'bg-sky-900/40 text-sky-300',
+      green:   'bg-emerald-900/40 text-emerald-300',
+      amber:   'bg-amber-900/40 text-amber-300',
+      violet:  'bg-violet-900/40 text-violet-300',
+    };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${styles[variant]}`}>
       {children}
@@ -54,7 +54,11 @@ const Badge = ({ children, variant = 'default' }) => {
 
 const StatCard = ({ icon: Icon, label, value, loading, color }) => {
   const colors = {
-    blue:    { bg: 'bg-sky-50 border-sky-100',    icon: 'bg-sky-100 text-sky-600',    val: 'text-sky-700'    },
+   blue: {
+  bg: 'bg-[#162033] border-[#22304d]',
+  icon: 'bg-sky-900/40 text-sky-300',
+  val: 'text-sky-300'
+},
     green:   { bg: 'bg-emerald-50 border-emerald-100', icon: 'bg-emerald-100 text-emerald-600', val: 'text-emerald-700' },
     violet:  { bg: 'bg-violet-50 border-violet-100', icon: 'bg-violet-100 text-violet-600', val: 'text-violet-700' },
     amber:   { bg: 'bg-amber-50 border-amber-100',  icon: 'bg-amber-100 text-amber-600',  val: 'text-amber-700'  },
@@ -66,7 +70,7 @@ const StatCard = ({ icon: Icon, label, value, loading, color }) => {
         <Icon size={20} />
       </div>
       <div>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium text-gray-300 uppercase tracking-wider">{label}</p>
         {loading
           ? <div className="w-12 h-6 bg-gray-200 animate-pulse rounded mt-1" />
           : <p className={`text-2xl font-bold mt-0.5 ${c.val}`}>{value?.toLocaleString() ?? '—'}</p>
@@ -93,14 +97,14 @@ const Toast = ({ msg, type, onDone }) => {
 /* ─── Confirm Modal ───────────────────────────── */
 const ConfirmModal = ({ title, desc, onConfirm, onCancel, loading }) => (
   <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+    <div className="bg-[#111c31] rounded-2xl shadow-2xl max-w-sm w-full p-6">
       <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
         <AlertTriangle size={22} className="text-amber-600" />
       </div>
-      <h3 className="text-base font-semibold text-gray-900 text-center mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 text-center mb-6">{desc}</p>
+      <h3 className="text-base font-semibold text-white text-center mb-1">{title}</h3>
+      <p className="text-sm text-gray-300 text-center mb-6">{desc}</p>
       <div className="flex gap-3">
-        <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+        <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-[#22304d] text-sm font-medium text-gray-600 hover:bg-[#162033] transition">
           Cancel
         </button>
         <button onClick={onConfirm} disabled={loading} className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition disabled:opacity-60 flex items-center justify-center gap-2">
@@ -114,11 +118,11 @@ const ConfirmModal = ({ title, desc, onConfirm, onCancel, loading }) => (
 
 /* ─── Mobile Card ─────────────────────────────── */
 const HostCard = ({ row }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+  <div className="bg-[#111c31] rounded-2xl border border-[#22304d] shadow-sm p-4 space-y-3">
     <div className="flex items-center gap-3">
       <Avatar name={row.name} />
       <div className="min-w-0">
-        <p className="font-semibold text-gray-900 truncate">{row.name}</p>
+        <p className="font-semibold text-white truncate">{row.name}</p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           <code className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">#{row.uid}</code>
           <Badge variant="blue">{row.agencyName || 'No Agency'}</Badge>
@@ -141,7 +145,7 @@ const HostCard = ({ row }) => (
     </div>
     <div className="flex items-center justify-between pt-1 border-t border-gray-50">
       <span className="text-[11px] text-gray-400">Object ID</span>
-      <code className="text-[11px] font-mono text-gray-500 truncate max-w-[180px]">{row.objectId || '—'}</code>
+      <code className="text-[11px] font-mono text-gray-300 truncate max-w-[180px]">{row.objectId || '—'}</code>
     </div>
   </div>
 );
@@ -149,7 +153,7 @@ const HostCard = ({ row }) => (
 const Metric = ({ icon: Icon, label, value, accent }) => {
   const accents = { violet: 'text-violet-600', emerald: 'text-emerald-600' };
   return (
-    <div className="bg-gray-50 rounded-xl p-2.5">
+    <div className="bg-[#162033] rounded-xl p-2.5">
       <div className="flex items-center gap-1 text-gray-400 mb-1">
         <Icon size={11} />
         <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
@@ -171,7 +175,7 @@ const Pagination = ({ page, totalPages, onChange, totalCount, pageSize }) => {
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-gray-100">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-[#22304d]">
       <p className="text-xs text-gray-400 order-2 sm:order-1">
         Showing <span className="font-medium text-gray-700">{start}–{end}</span> of <span className="font-medium text-gray-700">{totalCount.toLocaleString()}</span> records
       </p>
@@ -204,7 +208,7 @@ const PgBtn = ({ onClick, disabled, icon: Icon }) => (
   <button
     onClick={onClick}
     disabled={disabled}
-    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
   >
     <Icon size={14} />
   </button>
@@ -224,7 +228,7 @@ const AllHosts = () => {
   const [debouncedQ,  setDebouncedQ]  = useState('');
   const [stats,       setStats]       = useState({ totalHosts: 0, totalAgents: 0 });
   const [toast,       setToast]       = useState(null);
-  const [modal,       setModal]       = useState(null); // { type: 'reset'|'backup' }
+  // const [modal,       setModal]       = useState(null); // { type: 'reset'|'backup' }
   const [modalLoading, setModalLoading] = useState(false);
 
   const searchRef = useRef();
@@ -363,43 +367,43 @@ const AllHosts = () => {
   /* ── toast ────────────────────────────────── */
   const showToast = (msg, type = 'info') => setToast({ msg, type });
 
-  /* ── reset earnings ───────────────────────── */
-  const doReset = async () => {
-    setModalLoading(true);
-    try {
-      const result = await Parse.Cloud.run('resetEarningsAndDelete', {});
-      if (result?.success) {
-        showToast('Earnings reset and data deleted successfully!', 'success');
-        fetchPage(1, debouncedQ);
-        fetchStats();
-      } else {
-        showToast('Error: ' + (result?.error || 'Unknown error'), 'error');
-      }
-    } catch (e) {
-      showToast('Error: ' + e.message, 'error');
-    } finally {
-      setModalLoading(false);
-      setModal(null);
-    }
-  };
+  // /* ── reset earnings ───────────────────────── */
+  // const doReset = async () => {
+  //   setModalLoading(true);
+  //   try {
+  //     const result = await Parse.Cloud.run('resetEarningsAndDelete', {});
+  //     if (result?.success) {
+  //       showToast('Earnings reset and data deleted successfully!', 'success');
+  //       fetchPage(1, debouncedQ);
+  //       fetchStats();
+  //     } else {
+  //       showToast('Error: ' + (result?.error || 'Unknown error'), 'error');
+  //     }
+  //   } catch (e) {
+  //     showToast('Error: ' + e.message, 'error');
+  //   } finally {
+  //     setModalLoading(false);
+  //     setModal(null);
+  //   }
+  // };
 
-  /* ── backup ───────────────────────────────── */
-  const doBackup = async () => {
-    setModalLoading(true);
-    try {
-      const result = await Parse.Cloud.run('backupEarningsData', {});
-      if (result?.success) {
-        showToast('Data backed up successfully!', 'success');
-      } else {
-        showToast('Error: ' + (result?.error || 'Unknown error'), 'error');
-      }
-    } catch (e) {
-      showToast('Error: ' + e.message, 'error');
-    } finally {
-      setModalLoading(false);
-      setModal(null);
-    }
-  };
+  // /* ── backup ───────────────────────────────── */
+  // const doBackup = async () => {
+  //   setModalLoading(true);
+  //   try {
+  //     const result = await Parse.Cloud.run('backupEarningsData', {});
+  //     if (result?.success) {
+  //       showToast('Data backed up successfully!', 'success');
+  //     } else {
+  //       showToast('Error: ' + (result?.error || 'Unknown error'), 'error');
+  //     }
+  //   } catch (e) {
+  //     showToast('Error: ' + e.message, 'error');
+  //   } finally {
+  //     setModalLoading(false);
+  //     setModal(null);
+  //   }
+  // };
 
   /* ── export PDF ───────────────────────────── */
   const exportPDF = async () => {
@@ -459,13 +463,13 @@ const AllHosts = () => {
      RENDER
   ───────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#0d1525] text-gray-100">
 
       {/* Toast */}
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
       {/* Confirm Modal */}
-      {modal?.type === 'reset' && (
+      {/* {modal?.type === 'reset' && (
         <ConfirmModal
           title="Reset All Earnings?"
           desc="This will permanently delete all earnings data and reset values to zero. This cannot be undone."
@@ -482,15 +486,15 @@ const AllHosts = () => {
           onCancel={() => setModal(null)}
           loading={modalLoading}
         />
-      )}
+      )} */}
 
       {/* ── Page Header ── */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-30">
+     <div className="bg-[#111c31] border-b border-[#22304d] sticky top-0 z-30 backdrop-blur">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             {/* Title + Breadcrumb */}
             <div className="min-w-0">
-              <h1 className="text-base font-bold text-gray-900 leading-tight">All Hosts</h1>
+              <h1 className="text-base font-bold text-white leading-tight">All Hosts</h1>
               <nav className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
                 <span>Users</span>
                 <span>/</span>
@@ -500,7 +504,7 @@ const AllHosts = () => {
 
             {/* Action Buttons */}
             <div className="sm:ml-auto flex items-center gap-2 flex-wrap">
-              <button
+              {/* <button
                 onClick={() => setModal({ type: 'reset' })}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 transition-all active:scale-95"
               >
@@ -513,7 +517,7 @@ const AllHosts = () => {
               >
                 <Database size={14} />
                 <span className="hidden sm:inline">Backup Data</span>
-              </button>
+              </button> */}
               <button
                 onClick={exportPDF}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition-all active:scale-95"
@@ -537,7 +541,7 @@ const AllHosts = () => {
         </div>
 
         {/* ── Search Bar ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <div className="bg-[#111c31] rounded-2xl border border-[#22304d] shadow-sm px-4 py-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -546,7 +550,7 @@ const AllHosts = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by host name or UID…"
-              className="w-full pl-9 pr-10 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:bg-white transition"
+              className="w-full pl-9 pr-10 py-2.5 text-sm border border-[#22304d] rounded-xl bg-[#162033] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:bg-[#111c31] transition"
             />
             {search && (
               <button
@@ -568,11 +572,11 @@ const AllHosts = () => {
         {/* ── TABLE (desktop) / CARDS (mobile) ── */}
 
         {/* Desktop Table */}
-        <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="hidden md:block bg-[#111c31] rounded-2xl border border-[#22304d] shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[900px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-gray-100">
+                <tr className="bg-[#162033] border-b border-[#22304d]">
                   {[
                     ['Object ID', ''],
                     ['#', 'w-10'],
@@ -587,7 +591,7 @@ const AllHosts = () => {
                     ['Board Total', 'text-right'],
                     ['User Total', 'text-right'],
                   ].map(([h, cls]) => (
-                    <th key={h} className={`px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap ${cls}`}>{h}</th>
+                    <th key={h} className={`px-4 py-3 text-[11px] font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap ${cls}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -610,9 +614,9 @@ const AllHosts = () => {
                     </td>
                   </tr>
                 ) : rows.map((row, idx) => (
-                  <tr key={row.objectId} className="hover:bg-sky-50/40 transition-colors group">
+                  <tr key={row.objectId} className="hover:bg-[#1b2940] transition-colors group">
                     <td className="px-4 py-3.5">
-                      <code className="text-[11px] bg-gray-100 text-gray-500 px-2 py-1 rounded-md font-mono tracking-tight">{row.objectId}</code>
+                      <code className="text-[11px] bg-black-100 text-gray-300 px-2 py-1 rounded-md font-mono tracking-tight">{row.objectId}</code>
                     </td>
                     <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">
                       {(page - 1) * PAGE_SIZE + idx + 1}
@@ -623,19 +627,19 @@ const AllHosts = () => {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2.5">
                         <Avatar name={row.name} />
-                        <span className="font-medium text-gray-900 whitespace-nowrap">{row.name}</span>
+                        <span className="font-medium text-white whitespace-nowrap">{row.name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
                       <Badge variant="blue">{row.agencyName}</Badge>
                     </td>
                     <td className="px-4 py-3.5">
-                      <code className="text-xs text-gray-500 font-mono">{row.agencyOwnerId}</code>
+                      <code className="text-xs text-gray-300 font-mono">{row.agencyOwnerId}</code>
                     </td>
                     <td className="px-4 py-3.5 text-right font-medium text-gray-700">{row.videoBoardEarning.toLocaleString()}</td>
-                    <td className="px-4 py-3.5 text-right text-gray-500">{fmtMin(row.videoBoardDuration)}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-300">{fmtMin(row.videoBoardDuration)}</td>
                     <td className="px-4 py-3.5 text-right font-medium text-gray-700">{row.audioBoardEarning.toLocaleString()}</td>
-                    <td className="px-4 py-3.5 text-right text-gray-500">{fmtMin(row.audioBoardDuration)}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-300">{fmtMin(row.audioBoardDuration)}</td>
                     <td className="px-4 py-3.5 text-right">
                       <span className="font-semibold text-violet-700">{row.totalEarning?.toLocaleString()}</span>
                     </td>
@@ -667,7 +671,7 @@ const AllHosts = () => {
         <div className="md:hidden space-y-3">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 animate-pulse space-y-3">
+              <div key={i} className="bg-[#111c31] rounded-2xl border border-[#22304d] p-4 animate-pulse space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gray-200" />
                   <div className="flex-1 space-y-2">
@@ -683,7 +687,7 @@ const AllHosts = () => {
               </div>
             ))
           ) : rows.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+            <div className="bg-[#111c31] rounded-2xl border border-[#22304d] p-12 text-center">
               <Users size={32} className="mx-auto mb-2 text-gray-200" />
               <p className="text-sm text-gray-400">No records found{search ? ` for "${search}"` : ''}.</p>
             </div>
@@ -693,7 +697,7 @@ const AllHosts = () => {
 
           {/* Mobile Pagination */}
           {!loading && rows.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+            <div className="bg-[#111c31] rounded-2xl border border-[#22304d] shadow-sm">
               <Pagination
                 page={page}
                 totalPages={totalPages}
