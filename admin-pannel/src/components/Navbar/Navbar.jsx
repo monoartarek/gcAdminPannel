@@ -102,7 +102,7 @@ function Navbar({ onHamburgerClick }) {
             <Terminal size={18} color="#fff" />
           </div>
           <div className="priyu-brand-text">
-            <span className="brand-main">Piki</span>
+            <span className="brand-main">Priyu</span>
             <span className="brand-sub">Live</span>
           </div>
         </div>
