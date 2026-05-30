@@ -481,6 +481,10 @@ const sCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-3.5 py-2
 function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }) {
   const [user, setUser] = useState(initUser ? { ...initUser } : null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [pwForm,    setPwForm]    = useState({ newPassword: "", confirm: "" });
+  const [pwError,   setPwError]   = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+  const [showPw,    setShowPw]    = useState(false);
 
   useEffect(() => { if (initUser) setUser({ ...initUser }); }, [initUser]);
   if (!initUser || !user) return null;
@@ -502,6 +506,30 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
     || (user.avatar && typeof user.avatar.url==="function" ? user.avatar.url() : null);
 
   const saving = actionLoading === `edit_${user.objectId}`;
+  const handlePasswordChange = async () => {
+    setPwError("");
+    if (!pwForm.newPassword || pwForm.newPassword.length < 6) {
+      setPwError("Password must be at least 6 characters.");
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirm) {
+      setPwError("Passwords do not match.");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const obj = await new Parse.Query("_User").get(user.objectId, { useMasterKey: true });
+      obj.set("password", pwForm.newPassword);
+      await obj.save(null, { useMasterKey: true });
+      setPwForm({ newPassword: "", confirm: "" });
+      setShowPw(false);
+      showToast("Password changed successfully", "success");
+    } catch (e) {
+      setPwError("Failed: " + e.message);
+    } finally {
+      setPwLoading(false);
+    }
+  };
 
   return (
     <>
@@ -712,6 +740,109 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
                 </div>
               </EditSection>
             )}
+
+
+            {/* ── Change Password ── */}
+            <EditSection title="Change Password">
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed bg-slate-700/40 border border-slate-600/40 rounded-lg px-3 py-2">
+                🔐 This will immediately update the user's login password. The user will need to use the new password on next login.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+
+                {/* New Password */}
+                <EditField label="New Password">
+                  <div className="relative">
+                    <input
+                      className={iCls}
+                      type={showPw ? "text" : "password"}
+                      placeholder="Min. 6 characters"
+                      value={pwForm.newPassword}
+                      onChange={e => setPwForm(p => ({ ...p, newPassword: e.target.value }))}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(p => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm transition-colors"
+                    >
+                      {showPw ? "🙈" : "👁"}
+                    </button>
+                  </div>
+                </EditField>
+
+                {/* Confirm Password */}
+                <EditField label="Confirm Password">
+                  <div className="relative">
+                    <input
+                      className={iCls}
+                      type={showPw ? "text" : "password"}
+                      placeholder="Repeat new password"
+                      value={pwForm.confirm}
+                      onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+                    />
+                    {/* live match indicator */}
+                    {pwForm.confirm.length > 0 && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">
+                        {pwForm.newPassword === pwForm.confirm ? "✅" : "❌"}
+                      </span>
+                    )}
+                  </div>
+                </EditField>
+
+              </div>
+
+              {/* Password strength bar */}
+              {pwForm.newPassword.length > 0 && (
+                <div className="mt-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          pwForm.newPassword.length < 6  ? "w-1/4 bg-red-500" :
+                          pwForm.newPassword.length < 10 ? "w-2/4 bg-amber-500" :
+                          pwForm.newPassword.length < 14 ? "w-3/4 bg-blue-500" :
+                                                          "w-full bg-emerald-500"
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-[10px] font-semibold ${
+                      pwForm.newPassword.length < 6  ? "text-red-400"   :
+                      pwForm.newPassword.length < 10 ? "text-amber-400" :
+                      pwForm.newPassword.length < 14 ? "text-blue-400"  :
+                                                      "text-emerald-400"
+                    }`}>
+                      {pwForm.newPassword.length < 6  ? "Too Short" :
+                      pwForm.newPassword.length < 10 ? "Weak"      :
+                      pwForm.newPassword.length < 14 ? "Good"      :
+                                                        "Strong"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Error message */}
+              {pwError && (
+                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-3 py-2 mt-2 flex items-center gap-2">
+                  <span>⚠</span> {pwError}
+                </p>
+              )}
+
+              {/* Submit button */}
+              <button
+                type="button"
+                onClick={handlePasswordChange}
+                disabled={pwLoading || !pwForm.newPassword || !pwForm.confirm}
+                className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all shadow-lg shadow-violet-500/20"
+              >
+                {pwLoading
+                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : "🔑 Update Password"
+                }
+              </button>
+            </EditSection>
+
+
+
           </div>
 
           {/* Footer */}
@@ -751,6 +882,7 @@ export default function AllUsers() {
   const [viewUser,      setViewUser]      = useState(null);
   const [editUser,      setEditUser]      = useState(null);
   const [confirmModal,  setConfirmModal]  = useState(null);
+
 
   const showToast = useCallback((msg, type="success") => {
     setToast({ msg, type });

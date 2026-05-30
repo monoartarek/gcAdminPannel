@@ -106,7 +106,8 @@ export default function SplashBanner() {
     try {
       const parseFile = new Parse.File(file.name, file);
       await parseFile.save({ useMasterKey: true });
-      const Banner = Parse.Object.extend("SplashBanner");
+      // const Banner = Parse.Object.extend("SplashBanner");
+      const Banner = Parse.Object.extend("splash");
       const obj = new Banner();
       obj.set("images", parseFile);
       await obj.save(null, { useMasterKey: true });
@@ -126,7 +127,8 @@ export default function SplashBanner() {
     if (!editModal) return;
     setUploading(true);
     try {
-      const Banner = Parse.Object.extend("SplashBanner");
+      // const Banner = Parse.Object.extend("SplashBanner");
+      const Banner = Parse.Object.extend("splash");
       const obj = await new Parse.Query(Banner).get(editModal.id, { useMasterKey: true });
       if (file) {
         const parseFile = new Parse.File(file.name, file);
@@ -151,7 +153,8 @@ export default function SplashBanner() {
     const id = deleteModal.id;
     setDeleteModal(null);
     try {
-      const Banner = Parse.Object.extend("SplashBanner");
+      // const Banner = Parse.Object.extend("SplashBanner");
+      const Banner = Parse.Object.extend("splash");
       const obj = await new Parse.Query(Banner).get(id, { useMasterKey: true });
       await obj.destroy({ useMasterKey: true });
       setData(prev => prev.filter(d => d.id !== id));
