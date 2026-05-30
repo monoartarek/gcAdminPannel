@@ -201,31 +201,367 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
   };
 
-  const exportPDF = () => {
-    try {
-      const doc = new jsPDF('l', 'mm', 'a4');
-      doc.setFontSize(16); doc.setFont('helvetica', 'bold');
-      doc.text(`Agency Report: ${agent.get('agency_name') || '—'}`, 14, 16);
-      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(80);
-      doc.text(`UID: ${agent.get('uid')}  |  Hosts: ${totalHosts}  |  Total Earning: ${fmt(totalEarning)}  |  ${new Date().toLocaleString()}`, 14, 23);
-      autoTable(doc, {
-        head: [['Host UID','Host Name','Live Duration','Audio Duration','Diamonds','Created At']],
-        body: sorted.map(m => [
-          m.get('host')?.get('uid') || '—',
-          m.get('host')?.get('name') || '—',
-          fmtDur(m.get('livestream_duration_day'), m.get('livestream_duration_minute')),
-          fmtDur(m.get('audio_duration_day'), m.get('audio_duration_minute')),
-          m.get('host')?.get('diamonds') || 0,
-          m.get('createdAt')?.toLocaleString() || '—',
-        ]),
-        startY: 28, theme: 'striped',
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 8.5 },
-      });
-      doc.save(`Agency_${agent.get('uid')}_Report.pdf`);
-      showToast('PDF exported!');
-    } catch (e) { showToast('PDF failed: ' + e.message, 'error'); }
-  };
+  const exportPDF = async () => {
+  try {
+    const doc   = new jsPDF('l', 'mm', 'a4');
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 14;
+
+    /* ── COLORS ── */
+    const DARK      = [15,  23,  42];
+    const BLUE      = [37,  99,  235];
+    const WHITE     = [255, 255, 255];
+    const LIGHT_BG  = [241, 245, 249];
+    const MUTED     = [100, 116, 135];
+    const TEXT_DARK = [30,  41,  59];
+    const DIVIDER   = [203, 213, 225];
+    const GREEN     = [5,   150, 105];
+
+    /* ── SAFE TEXT (removes chars jsPDF cant render) ── */
+    const safe = (str) =>
+      String(str || '').replace(/[^\x00-\x7F]/g, '').trim();
+
+    const safeName        = safe(agentName)                  || 'Agent';
+    const safeUser        = safe(agentUser)                  || 'unknown';
+    const safeEmail       = safe(agentEmail)                 || '—';
+    const safeAgencyName  = safe(agent.get('agency_name'))   || '—';
+    const safeAgentUid    = safe(String(agentUid || '—'));
+    const safeJoined      = agent.get('createdAt')
+      ? agent.get('createdAt').toLocaleDateString('en-GB', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        })
+      : '—';
+
+    /* ══════════════════════════════
+       HEADER BAND
+    ══════════════════════════════ */
+    doc.setFillColor(...DARK);
+    doc.rect(0, 0, pageW, 22, 'F');
+
+    doc.setFillColor(...BLUE);
+    doc.rect(0, 0, 5, 22, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...WHITE);
+    doc.text('AGENCY REPORT', margin + 4, 14);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 190, 210);
+    const now = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    doc.text(`Generated: ${now}`, pageW - margin, 14, { align: 'right' });
+
+    /* ══════════════════════════════
+       AVATAR
+    ══════════════════════════════ */
+    let currentY = 30;
+
+    const drawInitials = () => {
+      doc.setFillColor(...BLUE);
+      doc.circle(margin + 10, currentY + 10, 10, 'F');
+      doc.setTextColor(...WHITE);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      const initials = safeName
+        .split(' ')
+        .filter(Boolean)
+        .map(w => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || '?';
+      doc.text(initials, margin + 10, currentY + 11.5, { align: 'center' });
+    };
+
+    let avatarLoaded = false;
+
+    if (avatarUrl) {
+      try {
+        /* ── Method 1: fetch as blob ── */
+        const controller = new AbortController();
+        const timeout    = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(avatarUrl, {
+          signal: controller.signal,
+          mode:   'cors',
+          cache:  'no-cache',
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const blob = await response.blob();
+
+        const base64 = await new Promise((res, rej) => {
+          const reader      = new FileReader();
+          reader.onloadend  = () => res(reader.result);
+          reader.onerror    = rej;
+          reader.readAsDataURL(blob);
+        });
+
+        const img = new Image();
+        await new Promise((res, rej) => {
+          img.onload  = res;
+          img.onerror = rej;
+          img.src     = base64;
+        });
+
+        const size   = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width  = size;
+        canvas.height = size;
+        const ctx    = canvas.getContext('2d');
+
+        /* circle crop */
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, 0, 0, size, size);
+
+        const cropped = canvas.toDataURL('image/jpeg', 0.95);
+        doc.addImage(cropped, 'JPEG', margin, currentY, 22, 22);
+        avatarLoaded = true;
+
+      } catch (err) {
+        console.warn('Avatar fetch failed:', err.message);
+
+        /* ── Method 2: try img element directly ── */
+        try {
+          const img2 = new Image();
+          img2.crossOrigin = 'anonymous';
+          await new Promise((res, rej) => {
+            img2.onload  = res;
+            img2.onerror = rej;
+            setTimeout(rej, 5000);
+            img2.src = avatarUrl + '?t=' + Date.now();
+          });
+
+          const size2   = 160;
+          const canvas2 = document.createElement('canvas');
+          canvas2.width  = size2;
+          canvas2.height = size2;
+          const ctx2    = canvas2.getContext('2d');
+
+          ctx2.beginPath();
+          ctx2.arc(size2 / 2, size2 / 2, size2 / 2, 0, Math.PI * 2);
+          ctx2.closePath();
+          ctx2.clip();
+          ctx2.drawImage(img2, 0, 0, size2, size2);
+
+          const cropped2 = canvas2.toDataURL('image/jpeg', 0.95);
+          doc.addImage(cropped2, 'JPEG', margin, currentY, 22, 22);
+          avatarLoaded = true;
+
+        } catch (err2) {
+          console.warn('Avatar method 2 also failed:', err2.message);
+          drawInitials();
+        }
+      }
+    } else {
+      drawInitials();
+    }
+
+    /* ══════════════════════════════
+       AGENT NAME + INFO
+    ══════════════════════════════ */
+    const nameX = margin + 26;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(safeName, nameX, currentY + 7);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...MUTED);
+    doc.text(`@${safeUser}`, nameX, currentY + 13);
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(`Joined: ${safeJoined}`, nameX, currentY + 19);
+
+    /* ══════════════════════════════
+       INFO BLOCK
+    ══════════════════════════════ */
+    const infoY = currentY + 26;
+    const infoH = 28;
+    const infoW = pageW - margin * 2;
+    const colW  = infoW / 5;
+
+    doc.setFillColor(...LIGHT_BG);
+    doc.roundedRect(margin, infoY, infoW, infoH, 2, 2, 'F');
+
+    doc.setFillColor(...BLUE);
+    doc.roundedRect(margin, infoY, infoW, 3, 1, 1, 'F');
+
+    const infoItems = [
+      { label: 'UID',            value: safeAgentUid,                          highlight: false },
+      { label: 'Agency Name',    value: safeAgencyName,                        highlight: false },
+      { label: 'Email',          value: safeEmail,                             highlight: false },
+      { label: 'Total Hosts',    value: String(totalHosts),                    highlight: true  },
+      { label: 'Agency Earning', value: fmt(totalEarning) + ' diamonds',       highlight: true  },
+    ];
+
+    infoItems.forEach((item, i) => {
+      const x = margin + colW * i + colW / 2;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...MUTED);
+      doc.text(item.label.toUpperCase(), x, infoY + 9, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(item.value.length > 20 ? 7 : 9);
+      doc.setTextColor(
+        item.highlight ? BLUE[0] : TEXT_DARK[0],
+        item.highlight ? BLUE[1] : TEXT_DARK[1],
+        item.highlight ? BLUE[2] : TEXT_DARK[2],
+      );
+      doc.text(item.value, x, infoY + 19, { align: 'center' });
+    });
+
+    /* vertical dividers */
+    doc.setDrawColor(...DIVIDER);
+    doc.setLineWidth(0.3);
+    for (let i = 1; i < 5; i++) {
+      const lx = margin + colW * i;
+      doc.line(lx, infoY + 5, lx, infoY + infoH - 5);
+    }
+
+    /* ══════════════════════════════
+       SECTION TITLE
+    ══════════════════════════════ */
+    const tableStartY = infoY + infoH + 8;
+
+    doc.setFillColor(...BLUE);
+    doc.rect(margin, tableStartY, 3, 6, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text('HOST DETAILS', margin + 6, tableStartY + 4.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(`${sorted.length} record(s)`, pageW - margin, tableStartY + 4.5, { align: 'right' });
+
+    /* ══════════════════════════════
+       HOST TABLE
+    ══════════════════════════════ */
+    autoTable(doc, {
+      startY: tableStartY + 9,
+      margin: { left: margin, right: margin },
+
+      head: [[
+        'No.',
+        'Host UID',
+        'Object ID',
+        'Host Name',
+        'Live Duration',
+        'Audio Duration',
+        'Diamonds',
+        'Joined Date',
+      ]],
+
+      body: sorted.map((m, idx) => {
+        const h  = m.get('host');
+        const ca = m.get('createdAt');
+        return [
+          idx + 1,
+          safe(String(h?.get('uid') || '—')),
+          safe(h?.id || '—'),
+          safe(h?.get('name') || '—') || '—',
+          fmtDur(
+            m.get('livestream_duration_day')    || 0,
+            m.get('livestream_duration_minute') || 0,
+          ),
+          fmtDur(
+            m.get('audio_duration_day')    || 0,
+            m.get('audio_duration_minute') || 0,
+          ),
+          Number(h?.get('diamonds') || 0).toLocaleString(),
+          ca
+            ? ca.toLocaleDateString('en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric',
+              })
+            : '—',
+        ];
+      }),
+
+      headStyles: {
+        fillColor:   BLUE,
+        textColor:   WHITE,
+        fontStyle:   'bold',
+        fontSize:    7.5,
+        cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+        halign:      'left',
+      },
+
+      bodyStyles: {
+        fontSize:    7.5,
+        textColor:   TEXT_DARK,
+        cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
+        lineColor:   DIVIDER,
+        lineWidth:   0.2,
+      },
+
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+
+      columnStyles: {
+        0: { cellWidth: 10,     halign: 'center', textColor: MUTED },
+        1: { cellWidth: 20,     fontStyle: 'bold' },
+        2: { cellWidth: 28,     textColor: MUTED,  fontSize: 6.5 },
+        3: { cellWidth: 'auto' },
+        4: { cellWidth: 24,     halign: 'center' },
+        5: { cellWidth: 24,     halign: 'center' },
+        6: { cellWidth: 24,     halign: 'right',  fontStyle: 'bold', textColor: GREEN },
+        7: { cellWidth: 26,     halign: 'center', textColor: MUTED },
+      },
+
+      showHead: 'everyPage',
+
+      didDrawPage: (data) => {
+        const totalPg = doc.internal.getNumberOfPages();
+        const curPg   = data.pageNumber;
+
+        doc.setDrawColor(...DIVIDER);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 10, pageW - margin, pageH - 10);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...MUTED);
+        doc.text(
+          `Agency: ${safeAgencyName}  |  Agent UID: ${safeAgentUid}  |  Agent: ${safeName}`,
+          margin, pageH - 6,
+        );
+        doc.text(
+          `Page ${curPg} of ${totalPg}`,
+          pageW - margin, pageH - 6, { align: 'right' },
+        );
+      },
+    });
+
+    /* ══════════════════════════════
+       SAVE
+    ══════════════════════════════ */
+    const slug = safeAgencyName.replace(/\s+/g, '_') || 'Agency';
+    doc.save(`${slug}_Report_${safeAgentUid}.pdf`);
+    showToast('PDF exported successfully!');
+
+  } catch (e) {
+    console.error('exportPDF error:', e);
+    showToast('PDF failed: ' + e.message, 'error');
+  }
+};
 
   const exportCSV = () => {
     const rows = sorted.map(m => [
