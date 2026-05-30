@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logoImg from '../../assets/logo.png';
 
 /* ══════════════════════════════════════════════
    CONSTANTS & HELPERS
@@ -218,20 +219,59 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     const DIVIDER   = [203, 213, 225];
     const GREEN     = [5,   150, 105];
 
-    /* ── SAFE TEXT (removes chars jsPDF cant render) ── */
+    /* ── SAFE TEXT ── */
     const safe = (str) =>
       String(str || '').replace(/[^\x00-\x7F]/g, '').trim();
 
-    const safeName        = safe(agentName)                  || 'Agent';
-    const safeUser        = safe(agentUser)                  || 'unknown';
-    const safeEmail       = safe(agentEmail)                 || '—';
-    const safeAgencyName  = safe(agent.get('agency_name'))   || '—';
-    const safeAgentUid    = safe(String(agentUid || '—'));
-    const safeJoined      = agent.get('createdAt')
+    const safeName       = safe(agentName)                || 'Agent';
+    const safeUser       = safe(agentUser)                || 'unknown';
+    const safeEmail      = safe(agentEmail)               || '—';
+    const safeAgencyName = safe(agent.get('agency_name')) || '—';
+    const safeAgentUid   = safe(String(agentUid || '—'));
+    const safeJoined     = agent.get('createdAt')
       ? agent.get('createdAt').toLocaleDateString('en-GB', {
           day: '2-digit', month: 'short', year: 'numeric',
         })
       : '—';
+
+    /* ── LOAD LOGO FOR WATERMARK ── */
+    let logoBase64 = null;
+    try {
+      const logoResponse = await fetch(logoImg);
+      if (logoResponse.ok) {
+        const logoBlob = await logoResponse.blob();
+        logoBase64 = await new Promise((res, rej) => {
+          const reader     = new FileReader();
+          reader.onloadend = () => res(reader.result);
+          reader.onerror   = rej;
+          reader.readAsDataURL(logoBlob);
+        });
+      }
+    } catch (logoErr) {
+      console.warn('Logo load failed:', logoErr.message);
+    }
+
+    /* ── WATERMARK HELPER (called per page) ── */
+    const drawWatermark = () => {
+      if (!logoBase64) return;
+      try {
+        const wmW = 110;
+        const wmH = 110;
+        const wmX = (pageW - wmW) / 2;
+        const wmY = (pageH - wmH) / 2;
+        doc.saveGraphicsState();
+        doc.setGState(doc.GState({ opacity: 0.20 }));
+        doc.addImage(logoBase64, 'PNG', wmX, wmY, wmW, wmH);
+        doc.restoreGraphicsState();
+      } catch (e) {
+        console.warn('Watermark draw failed:', e.message);
+      }
+    };
+
+    /* ══════════════════════════════
+       PAGE 1 WATERMARK
+    ══════════════════════════════ */
+    drawWatermark();
 
     /* ══════════════════════════════
        HEADER BAND
@@ -277,29 +317,24 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
       doc.text(initials, margin + 10, currentY + 11.5, { align: 'center' });
     };
 
-    let avatarLoaded = false;
-
     if (avatarUrl) {
       try {
-        /* ── Method 1: fetch as blob ── */
+        /* Method 1 — fetch as blob */
         const controller = new AbortController();
         const timeout    = setTimeout(() => controller.abort(), 8000);
-
-        const response = await fetch(avatarUrl, {
+        const response   = await fetch(avatarUrl, {
           signal: controller.signal,
           mode:   'cors',
           cache:  'no-cache',
         });
         clearTimeout(timeout);
-
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const blob = await response.blob();
-
+        const blob   = await response.blob();
         const base64 = await new Promise((res, rej) => {
-          const reader      = new FileReader();
-          reader.onloadend  = () => res(reader.result);
-          reader.onerror    = rej;
+          const reader     = new FileReader();
+          reader.onloadend = () => res(reader.result);
+          reader.onerror   = rej;
           reader.readAsDataURL(blob);
         });
 
@@ -315,8 +350,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
         canvas.width  = size;
         canvas.height = size;
         const ctx    = canvas.getContext('2d');
-
-        /* circle crop */
         ctx.beginPath();
         ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
         ctx.closePath();
@@ -325,13 +358,11 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
 
         const cropped = canvas.toDataURL('image/jpeg', 0.95);
         doc.addImage(cropped, 'JPEG', margin, currentY, 22, 22);
-        avatarLoaded = true;
 
       } catch (err) {
-        console.warn('Avatar fetch failed:', err.message);
-
-        /* ── Method 2: try img element directly ── */
+        console.warn('Avatar method 1 failed:', err.message);
         try {
+          /* Method 2 — crossOrigin img */
           const img2 = new Image();
           img2.crossOrigin = 'anonymous';
           await new Promise((res, rej) => {
@@ -346,7 +377,6 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
           canvas2.width  = size2;
           canvas2.height = size2;
           const ctx2    = canvas2.getContext('2d');
-
           ctx2.beginPath();
           ctx2.arc(size2 / 2, size2 / 2, size2 / 2, 0, Math.PI * 2);
           ctx2.closePath();
@@ -355,10 +385,9 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
 
           const cropped2 = canvas2.toDataURL('image/jpeg', 0.95);
           doc.addImage(cropped2, 'JPEG', margin, currentY, 22, 22);
-          avatarLoaded = true;
 
         } catch (err2) {
-          console.warn('Avatar method 2 also failed:', err2.message);
+          console.warn('Avatar method 2 failed:', err2.message);
           drawInitials();
         }
       }
@@ -400,11 +429,11 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     doc.roundedRect(margin, infoY, infoW, 3, 1, 1, 'F');
 
     const infoItems = [
-      { label: 'UID',            value: safeAgentUid,                          highlight: false },
-      { label: 'Agency Name',    value: safeAgencyName,                        highlight: false },
-      { label: 'Email',          value: safeEmail,                             highlight: false },
-      { label: 'Total Hosts',    value: String(totalHosts),                    highlight: true  },
-      { label: 'Agency Earning', value: fmt(totalEarning) + ' diamonds',       highlight: true  },
+      { label: 'UID',            value: safeAgentUid,                    highlight: false },
+      { label: 'Agency Name',    value: safeAgencyName,                  highlight: false },
+      { label: 'Email',          value: safeEmail,                       highlight: false },
+      { label: 'Total Hosts',    value: String(totalHosts),              highlight: true  },
+      { label: 'Agency Earning', value: fmt(totalEarning) + ' diamonds', highlight: true  },
     ];
 
     infoItems.forEach((item, i) => {
@@ -449,7 +478,10 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
-    doc.text(`${sorted.length} record(s)`, pageW - margin, tableStartY + 4.5, { align: 'right' });
+    doc.text(
+      `${sorted.length} record(s)`,
+      pageW - margin, tableStartY + 4.5, { align: 'right' },
+    );
 
     /* ══════════════════════════════
        HOST TABLE
@@ -528,14 +560,22 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
 
       showHead: 'everyPage',
 
+      /* ── watermark + footer on every page ── */
       didDrawPage: (data) => {
         const totalPg = doc.internal.getNumberOfPages();
         const curPg   = data.pageNumber;
 
+        /* watermark on page 2+ */
+        if (curPg > 1) {
+          drawWatermark();
+        }
+
+        /* footer line */
         doc.setDrawColor(...DIVIDER);
         doc.setLineWidth(0.3);
         doc.line(margin, pageH - 10, pageW - margin, pageH - 10);
 
+        /* footer text left */
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         doc.setTextColor(...MUTED);
@@ -543,6 +583,8 @@ const FullPageOverlay = ({ agent, members, membersLoading, onClose, showToast })
           `Agency: ${safeAgencyName}  |  Agent UID: ${safeAgentUid}  |  Agent: ${safeName}`,
           margin, pageH - 6,
         );
+
+        /* footer text right */
         doc.text(
           `Page ${curPg} of ${totalPg}`,
           pageW - margin, pageH - 6, { align: 'right' },
