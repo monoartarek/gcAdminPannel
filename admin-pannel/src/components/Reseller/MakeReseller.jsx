@@ -2,15 +2,9 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Parse from "../../parseConfig";
 import "./MakeReseller.css";
 
-/* ════════════════════════════════════════════════════════════
-   MakeReseller.jsx
-   Parse class "reseller": { user_id: string, whatsapp_number: string }
-   user_id = _User objectId (e.g. "gjfYViINps")
-════════════════════════════════════════════════════════════ */
-
 const PAGE_SIZE = 25;
 
-function getInitial(name)  { return (name || "?").charAt(0).toUpperCase(); }
+function getInitial(name) { return (name || "?").charAt(0).toUpperCase(); }
 function getAvatarColor(str) {
   const p = ["#6366f1","#f472b6","#34d399","#fbbf24","#f87171","#60a5fa","#a78bfa","#22d3ee"];
   let h = 0;
@@ -32,7 +26,6 @@ function copyToClipboard(text, showToast) {
 export default function MakeReseller() {
 
   const [users,         setUsers]         = useState([]);
-  const [resellerMap,   setResellerMap]   = useState({}); // { userId: resellerObjectId }
   const [search,        setSearch]        = useState("");
   const [searchInput,   setSearchInput]   = useState("");
   const [filter,        setFilter]        = useState("all");
@@ -63,142 +56,98 @@ export default function MakeReseller() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  /* ════════════════════════════════════════════════════════
-     FETCH RESELLER MAP
-     Returns { userId: resellerObjectId } for ALL resellers
-     This runs FIRST, then fetchPage uses the result directly
-  ════════════════════════════════════════════════════════ */
-  const fetchResellerMap = useCallback(async () => {
-    try {
-      const q = new Parse.Query("reseller");
-      q.limit(2000);
-      q.select("user_id");
-      const res = await q.find({ useMasterKey: true });
-      const map = {};
-      res.forEach(r => {
-        const uid = r.get("user_id");
-        if (uid) map[uid] = r.id; // { "gjfYViINps": "mijoFlLnN8" }
-      });
-      setResellerMap(map);
-      return map;
-    } catch (err) {
-      console.error("fetchResellerMap error:", err);
-      return {};
-    }
-  }, []);
-
-  /* ════════════════════════════════════════════════════════
+  /* ════════════════════════════════════════════════
      FETCH STAT COUNTS
-  ════════════════════════════════════════════════════════ */
+  ════════════════════════════════════════════════ */
   const fetchStatCounts = useCallback(async () => {
     try {
+      const User = Parse.Object.extend("_User");
+      const mk   = { useMasterKey: true };
       const [total, reseller] = await Promise.all([
-        new Parse.Query(Parse.Object.extend("_User")).count({ useMasterKey: true }),
-        new Parse.Query("reseller").count({ useMasterKey: true }),
+        new Parse.Query(User).count(mk),
+        (() => {
+          const q = new Parse.Query(User);
+          q.equalTo("isreseller", true);
+          return q.count(mk);
+        })(),
       ]);
       setStatCounts({ total, reseller });
     } catch (err) { console.error("fetchStatCounts:", err); }
   }, []);
 
-  /* ════════════════════════════════════════════════════════
-     FETCH USERS PAGE
-     map param = resellerMap passed directly (avoids stale state)
-  ════════════════════════════════════════════════════════ */
-  const fetchPage = useCallback(async (pageNum, filterF, searchQ, map) => {
+  /* ════════════════════════════════════════════════
+     MAP USER PARSE OBJECT
+  ════════════════════════════════════════════════ */
+  const mapUser = (u) => {
+    const av = u.get("avatar");
+    let avatarUrl = null;
+    if (av && typeof av.url === "function") avatarUrl = av.url();
+    else if (typeof av === "string") avatarUrl = av;
+    return {
+      objectId:              u.id,
+      uid:                   String(u.get("uid") || u.id),
+      name:                  u.get("name")                   || "—",
+      username:              u.get("username")               || "anonymous",
+      gender:                u.get("gender")                 || "—",
+      credit:                u.get("credit")                 || 0,
+      reseller_coins:        u.get("reseller_coins")         || 0,
+      reseller_whatsapp:     u.get("reseller_whatsAppnumber")|| "",
+      isReseller:            !!u.get("isreseller"),
+      avatar:                avatarUrl,
+    };
+  };
+
+  /* ════════════════════════════════════════════════
+     FETCH PAGE
+  ════════════════════════════════════════════════ */
+  const fetchPage = useCallback(async (pageNum, filterF, searchQ) => {
     setLoading(true); setAnimated(false);
     try {
       const User    = Parse.Object.extend("_User");
       const mk      = { useMasterKey: true };
       const trimmed = searchQ.trim();
 
-      /* ── RESELLER FILTER: fetch directly from reseller class ── */
-      if (filterF === "reseller" && !trimmed) {
-        // Get all reseller user_ids
-        const rQuery = new Parse.Query("reseller");
-        rQuery.limit(2000);
-        const rRecords = await rQuery.find(mk);
-        const userIds  = rRecords.map(r => r.get("user_id")).filter(Boolean);
-
-        if (userIds.length === 0) { setUsers([]); setTotalCount(0); setLoading(false); setTimeout(()=>setAnimated(true),60); return; }
-
-        // Fetch those specific users by objectId
-        const userQuery = new Parse.Query(User);
-        userQuery.containedIn("objectId", userIds);
-        userQuery.limit(1000);
-        userQuery.select("uid","name","username","gender","rCoin","coins","role","avatar");
-
-        const batch = await userQuery.find(mk);
-        setTotalCount(batch.length);
-
-        const mapped = batch.map(u => {
-          const av = u.get("avatar");
-          let avatarUrl = null;
-          if (av && typeof av.url === "function") avatarUrl = av.url();
-          else if (typeof av === "string") avatarUrl = av;
-          return {
-            objectId:      u.id,
-            uid:           String(u.get("uid") || u.id),
-            name:          u.get("name")     || "—",
-            username:      u.get("username") || "anonymous",
-            gender:        u.get("gender")   || "—",
-            rCoin:         u.get("rCoin")    || 0,
-            coins:         u.get("coins")    || 0,
-            role:          u.get("role")     || "user",
-            avatar:        avatarUrl,
-            isReseller:    true,
-            resellerObjId: map[u.id] || null,
-          };
-        });
-        setUsers(mapped);
-        setLoading(false); setTimeout(()=>setAnimated(true),60);
-        return;
-      }
-
-      /* ── NORMAL FETCH ── */
-      const buildQuery = () => {
+      const buildBaseQuery = () => {
         if (trimmed) {
           const byName = new Parse.Query(User); byName.contains("name", trimmed);
           const byUser = new Parse.Query(User); byUser.contains("username", trimmed);
           const queries = [byName, byUser];
           const n = parseInt(trimmed);
-          if (!isNaN(n)) { const byUid = new Parse.Query(User); byUid.equalTo("uid", n); queries.push(byUid); }
+          if (!isNaN(n)) {
+            const byUid = new Parse.Query(User);
+            byUid.equalTo("uid", n);
+            queries.push(byUid);
+          }
           return Parse.Query.or(...queries);
         }
         return new Parse.Query(User);
       };
 
-      const q = buildQuery(); const countQ = buildQuery();
-      q.descending("createdAt"); q.limit(PAGE_SIZE); q.skip(pageNum * PAGE_SIZE);
-      q.select("uid","name","username","gender","rCoin","coins","role","avatar");
+      const q      = buildBaseQuery();
+      const countQ = buildBaseQuery();
+
+      /* apply reseller filter */
+      if (filterF === "reseller") {
+        q.equalTo("isreseller", true);
+        countQ.equalTo("isreseller", true);
+      } else if (filterF === "user") {
+        q.notEqualTo("isreseller", true);
+        countQ.notEqualTo("isreseller", true);
+      }
+
+      q.descending("createdAt");
+      q.limit(PAGE_SIZE);
+      q.skip(pageNum * PAGE_SIZE);
+      q.select([
+        "uid", "name", "username", "gender",
+        "credit", "reseller_coins", "reseller_whatsAppnumber",
+        "isreseller", "avatar",
+      ]);
 
       const [batch, count] = await Promise.all([q.find(mk), countQ.count(mk)]);
       setTotalCount(count);
+      setUsers(batch.map(mapUser));
 
-      let mapped = batch.map(u => {
-        const av = u.get("avatar");
-        let avatarUrl = null;
-        if (av && typeof av.url === "function") avatarUrl = av.url();
-        else if (typeof av === "string") avatarUrl = av;
-        const isReseller = u.id in map;
-        return {
-          objectId:      u.id,
-          uid:           String(u.get("uid") || u.id),
-          name:          u.get("name")     || "—",
-          username:      u.get("username") || "anonymous",
-          gender:        u.get("gender")   || "—",
-          rCoin:         u.get("rCoin")    || 0,
-          coins:         u.get("coins")    || 0,
-          role:          u.get("role")     || "user",
-          avatar:        avatarUrl,
-          isReseller,
-          resellerObjId: map[u.id] || null,
-        };
-      });
-
-      /* client-side filter only for "user" tab (non-resellers in current page) */
-      if (filterF === "user") mapped = mapped.filter(u => !u.isReseller);
-
-      setUsers(mapped);
     } catch (err) {
       console.error("fetchPage:", err);
       showToast("Fetch failed: " + err.message, "error");
@@ -208,22 +157,19 @@ export default function MakeReseller() {
     }
   }, [showToast]);
 
-  /* ── Load everything on mount ── */
+  /* ── initial load ── */
   useEffect(() => {
-    const init = async () => {
-      const [map] = await Promise.all([fetchResellerMap(), fetchStatCounts()]);
-      fetchPage(0, "all", "", map);
-    };
-    init();
+    fetchPage(0, "all", "");
+    fetchStatCounts();
   }, []); // eslint-disable-line
 
-  /* ── Re-fetch when filter / search / page changes ── */
+  /* ── re-fetch on filter / search / page change ── */
   useEffect(() => {
-    fetchPage(page, filter, search, resellerMap);
+    fetchPage(page, filter, search);
   }, [page, filter, search]); // eslint-disable-line
 
   /* ── pagination ── */
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
   const pageRange  = useMemo(() => {
     const delta = 2, range = [];
     for (let i = Math.max(0,page-delta); i <= Math.min(totalPages-1,page+delta); i++) range.push(i);
@@ -231,85 +177,94 @@ export default function MakeReseller() {
   }, [page, totalPages]);
   const changePage = n => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  /* ════════════════════════════════════════════════════════
-     COIN UPDATE
-  ════════════════════════════════════════════════════════ */
+  /* ════════════════════════════════════════════════
+     COIN UPDATE  (uses "credit" field)
+  ════════════════════════════════════════════════ */
   const openCoinModal = (user, type) => {
     setCoinModal({ user, type }); setCoinInput(""); setCoinError("");
   };
-  const confirmCoin = async () => {
-    const amount = parseInt(coinInput);
-    if (!coinInput || isNaN(amount) || amount <= 0) { setCoinError("Enter a valid positive number"); return; }
-    const { user, type } = coinModal;
-    const newCoins = type === "inc" ? user.coins + amount : Math.max(0, user.coins - amount);
-    setCoinModal(null); setActionLoading(user.objectId);
-    try {
-      const obj = await new Parse.Query(Parse.Object.extend("_User")).get(user.objectId, { useMasterKey: true });
-      obj.set("coins", newCoins);
-      await obj.save(null, { useMasterKey: true });
-      setUsers(list => list.map(u => u.objectId === user.objectId ? { ...u, coins: newCoins } : u));
-      showToast(`${user.username}: ${type==="inc"?"+":"-"}${amount} coins → ${newCoins}`, type==="inc"?"success":"info");
-    } catch (err) { showToast("Failed: " + err.message, "error"); }
-    finally { setActionLoading(null); }
-  };
 
-  /* ════════════════════════════════════════════════════════
+const confirmCoin = async () => {
+  const amount = parseInt(coinInput);
+  if (!coinInput || isNaN(amount) || amount <= 0) {
+    setCoinError("Enter a valid positive number"); return;
+  }
+  const { user, type } = coinModal;
+  const newResellerCoins = type === "inc"
+    ? user.reseller_coins + amount
+    : Math.max(0, user.reseller_coins - amount);
+
+  setCoinModal(null);
+  setActionLoading(user.objectId);
+  try {
+    const obj = await new Parse.Query("_User").get(user.objectId, { useMasterKey: true });
+    obj.set("reseller_coins", newResellerCoins);
+    await obj.save(null, { useMasterKey: true });
+    setUsers(list => list.map(u =>
+      u.objectId === user.objectId
+        ? { ...u, reseller_coins: newResellerCoins }
+        : u
+    ));
+    showToast(
+      `${user.username}: ${type==="inc"?"+":"-"}${amount} reseller coins → ${newResellerCoins}`,
+      type === "inc" ? "success" : "info"
+    );
+  } catch (err) {
+    showToast("Failed: " + err.message, "error");
+  } finally {
+    setActionLoading(null);
+  }
+};
+
+  /* ════════════════════════════════════════════════
      MAKE / REMOVE RESELLER
-     MAKE   → POST to Parse "reseller" class: { user_id, whatsapp_number }
-     REMOVE → find record by objectId (stored in resellerMap), destroy it
-  ════════════════════════════════════════════════════════ */
-  const openResellerModal = user => { setResellerModal(user); setWhatsappInput(""); };
+     Sets isreseller = true/false directly on _User
+  ════════════════════════════════════════════════ */
+  const openResellerModal = user => {
+    setResellerModal(user);
+    setWhatsappInput(user.reseller_whatsapp || "");
+  };
 
   const confirmReseller = async () => {
     if (!resellerModal) return;
-    const user = resellerModal;
+    const user      = resellerModal;
+    const makingRes = !user.isReseller; // true = making reseller, false = removing
     setResellerModal(null);
     setActionLoading(user.objectId);
     try {
-      if (user.isReseller) {
-        /* ── REMOVE: destroy the reseller record ── */
-        if (user.resellerObjId) {
-          const rObj = await new Parse.Query("reseller").get(user.resellerObjId, { useMasterKey: true });
-          await rObj.destroy({ useMasterKey: true });
-        } else {
-          /* fallback: find by user_id */
-          const q = new Parse.Query("reseller");
-          q.equalTo("user_id", user.objectId);
-          const found = await q.first({ useMasterKey: true });
-          if (found) await found.destroy({ useMasterKey: true });
-        }
+      const obj = await new Parse.Query("_User").get(user.objectId, { useMasterKey: true });
 
-        /* Update local state */
-        const newMap = { ...resellerMap };
-        delete newMap[user.objectId];
-        setResellerMap(newMap);
-        setUsers(list => list.map(u =>
-          u.objectId === user.objectId
-            ? { ...u, isReseller: false, resellerObjId: null }
-            : u
-        ));
-        showToast(`${user.username} removed from resellers`, "info");
-
+      if (makingRes) {
+        /* ── MAKE RESELLER ── */
+        obj.set("isreseller",              true);
+        obj.set("reseller_whatsAppnumber", whatsappInput.trim() || "");
       } else {
-        /* ── MAKE RESELLER: create new record ── */
-        const Reseller = Parse.Object.extend("reseller");
-        const record   = new Reseller();
-        record.set("user_id",         user.objectId);                      // _User objectId
-        record.set("whatsapp_number", whatsappInput.trim() || "0000000000");
-        const saved = await record.save(null, { useMasterKey: true });
-
-        /* Update local state */
-        const newMap = { ...resellerMap, [user.objectId]: saved.id };
-        setResellerMap(newMap);
-        setUsers(list => list.map(u =>
-          u.objectId === user.objectId
-            ? { ...u, isReseller: true, resellerObjId: saved.id }
-            : u
-        ));
-        showToast(`${user.username} is now a Reseller ✓`, "success");
+        /* ── REMOVE RESELLER ── */
+        obj.set("isreseller",              false);
+        obj.set("reseller_whatsAppnumber", "");
+        obj.set("reseller_coins",          0);
       }
 
-      fetchStatCounts(); // refresh pill counts
+      await obj.save(null, { useMasterKey: true });
+
+      setUsers(list => list.map(u =>
+        u.objectId === user.objectId
+          ? {
+              ...u,
+              isReseller:        makingRes,
+              reseller_whatsapp: makingRes ? whatsappInput.trim() : "",
+              reseller_coins:    makingRes ? u.reseller_coins : 0,
+            }
+          : u
+      ));
+
+      fetchStatCounts();
+      showToast(
+        makingRes
+          ? `${user.username} is now a Reseller`
+          : `${user.username} removed from resellers`,
+        makingRes ? "success" : "info"
+      );
 
     } catch (err) {
       console.error("confirmReseller:", err);
@@ -319,7 +274,9 @@ export default function MakeReseller() {
     }
   };
 
-  /* ════════════ RENDER ════════════ */
+  /* ════════════════════════════════════════════════
+     RENDER
+  ════════════════════════════════════════════════ */
   return (
     <div className="rs-root">
 
@@ -341,25 +298,32 @@ export default function MakeReseller() {
               style={{ background: coinModal.type==="inc" ? "rgba(52,211,153,0.15)" : "rgba(248,113,113,0.15)" }}>
               {coinModal.type==="inc" ? "+" : "−"}
             </div>
-            <h3 className="rs-modal-title">{coinModal.type==="inc" ? "Add Coins" : "Deduct Coins"}</h3>
+            <h3 className="rs-modal-title">
+              {coinModal.type==="inc" ? "Add Credits" : "Deduct Credits"}
+            </h3>
             <p className="rs-modal-body">
-              {coinModal.type==="inc" ? "Add coins to" : "Deduct coins from"}{" "}
+              {coinModal.type==="inc" ? "Add credits to" : "Deduct credits from"}{" "}
               <strong>@{coinModal.user.username}</strong><br/>
-              <span className="rs-modal-current">Current: <b>{coinModal.user.coins.toLocaleString()}</b></span>
+<span className="rs-modal-current">
+  Current Reseller Coins: <b>{coinModal.user.reseller_coins.toLocaleString()}</b>
+</span>
             </p>
             <div className="rs-coin-input-wrap">
-              <input className={`rs-coin-input ${coinError ? "is-error" : ""}`}
+              <input
+                className={`rs-coin-input ${coinError ? "is-error" : ""}`}
                 type="number" min="1" placeholder="Enter amount…"
                 value={coinInput} autoFocus
                 onChange={e => { setCoinInput(e.target.value); setCoinError(""); }}
-                onKeyDown={e => e.key==="Enter" && confirmCoin()} />
+                onKeyDown={e => e.key==="Enter" && confirmCoin()}
+              />
               {coinError && <span className="rs-coin-error">{coinError}</span>}
             </div>
             <div className="rs-modal-actions">
               <button className="rs-modal-cancel" onClick={() => setCoinModal(null)}>Cancel</button>
-              <button className={`rs-modal-confirm ${coinModal.type==="inc"?"is-green":"is-red"}`}
+              <button
+                className={`rs-modal-confirm ${coinModal.type==="inc"?"is-green":"is-red"}`}
                 onClick={confirmCoin}>
-                {coinModal.type==="inc" ? "Add Coins" : "Deduct Coins"}
+                {coinModal.type==="inc" ? "Add Credits" : "Deduct Credits"}
               </button>
             </div>
           </div>
@@ -376,17 +340,28 @@ export default function MakeReseller() {
             </h3>
             <p className="rs-modal-body">
               {resellerModal.isReseller
-                ? <>Remove <strong>@{resellerModal.username}</strong> from resellers?<br/><span className="rs-modal-current">This will delete their reseller record.</span></>
-                : <>Make <strong>@{resellerModal.username}</strong> a reseller?<br/><span className="rs-modal-current">A new record will be added to the reseller class.</span></>
+                ? <>Remove <strong>@{resellerModal.username}</strong> from resellers?<br/>
+                    <span className="rs-modal-current">
+                      This will set isreseller = false on their account.
+                    </span>
+                  </>
+                : <>Make <strong>@{resellerModal.username}</strong> a reseller?<br/>
+                    <span className="rs-modal-current">
+                      This will set isreseller = true on their account.
+                    </span>
+                  </>
               }
             </p>
             {!resellerModal.isReseller && (
               <div className="rs-coin-input-wrap">
-                <input className="rs-coin-input" type="text"
+                <input
+                  className="rs-coin-input"
+                  type="text"
                   placeholder="WhatsApp number (optional)"
                   value={whatsappInput}
                   onChange={e => setWhatsappInput(e.target.value)}
-                  onKeyDown={e => e.key==="Enter" && confirmReseller()} />
+                  onKeyDown={e => e.key==="Enter" && confirmReseller()}
+                />
               </div>
             )}
             <div className="rs-modal-actions">
@@ -419,7 +394,7 @@ export default function MakeReseller() {
             <button className={`rs-toggle-btn ${viewMode==="card"?"is-active":""}`} onClick={() => setViewMode("card")}>⊞ Cards</button>
           </div>
           <button className="rs-refresh-btn"
-            onClick={async () => { const map = await fetchResellerMap(); fetchPage(page,filter,search,map); fetchStatCounts(); }}
+            onClick={() => { fetchPage(page,filter,search); fetchStatCounts(); }}
             disabled={loading}>
             {loading ? <span className="rs-btn-spin"/> : "↻ Refresh"}
           </button>
@@ -429,9 +404,9 @@ export default function MakeReseller() {
       {/* Stat Pills */}
       <div className="rs-stat-pills">
         {[
-          { label:"Total",     val: statCounts.total,                          color:"violet", key:"all"      },
-          { label:"Users",     val: statCounts.total - statCounts.reseller,     color:"blue",   key:"user"     },
-          { label:"Resellers", val: statCounts.reseller,                        color:"amber",  key:"reseller" },
+          { label:"Total",     val: statCounts.total,                         color:"violet", key:"all"      },
+          { label:"Users",     val: statCounts.total - statCounts.reseller,    color:"blue",   key:"user"     },
+          { label:"Resellers", val: statCounts.reseller,                       color:"amber",  key:"reseller" },
         ].map((s, i) => (
           <button key={s.key}
             className={`rs-stat-pill rs-stat-pill--${s.color} ${filter===s.key?"is-active":""}`}
@@ -513,17 +488,17 @@ export default function MakeReseller() {
                 </div>
                 <div className="rs-card-coins">
                   <div className="rs-coin-item">
-                    <span className="rs-coin-label">Coins</span>
-                    <span className="rs-coin-val rs-coin-val--gold">{user.coins.toLocaleString()}</span>
+                    <span className="rs-coin-label">Credits</span>
+                    <span className="rs-coin-val rs-coin-val--gold">{user.credit.toLocaleString()}</span>
                   </div>
                   <div className="rs-coin-divider"/>
                   <div className="rs-coin-item">
-                    <span className="rs-coin-label">R-Coin</span>
-                    <span className="rs-coin-val rs-coin-val--violet">{user.rCoin.toLocaleString()}</span>
+                    <span className="rs-coin-label">R-Coins</span>
+                    <span className="rs-coin-val rs-coin-val--violet">{user.reseller_coins.toLocaleString()}</span>
                   </div>
                 </div>
                 <div className="rs-card-coin-btns">
-                  <button className="rs-coin-btn rs-coin-btn--plus"  disabled={il} onClick={() => openCoinModal(user,"inc")}>
+                  <button className="rs-coin-btn rs-coin-btn--plus" disabled={il} onClick={() => openCoinModal(user,"inc")}>
                     {il ? <span className="rs-btn-spin"/> : "+ Add"}
                   </button>
                   <button className="rs-coin-btn rs-coin-btn--minus" disabled={il} onClick={() => openCoinModal(user,"dec")}>
@@ -548,8 +523,8 @@ export default function MakeReseller() {
             <span className="rs-list-hcol rs-list-hcol--grow">Name / Username</span>
             <span className="rs-list-hcol rs-list-hcol--hide-sm">UID</span>
             <span className="rs-list-hcol rs-list-hcol--hide-md">Gender</span>
-            <span className="rs-list-hcol">Coins</span>
-            <span className="rs-list-hcol rs-list-hcol--hide-sm">R-Coin</span>
+            <span className="rs-list-hcol">Credits</span>
+            <span className="rs-list-hcol rs-list-hcol--hide-sm">R-Coins</span>
             <span className="rs-list-hcol">Status</span>
             <span className="rs-list-hcol rs-list-hcol--right">Actions</span>
           </div>
@@ -580,10 +555,10 @@ export default function MakeReseller() {
                   <span className="rs-list-text">{user.gender}</span>
                 </div>
                 <div className="rs-list-cell">
-                  <span className="rs-list-coin rs-list-coin--gold">{user.coins.toLocaleString()}</span>
+                  <span className="rs-list-coin rs-list-coin--gold">{user.credit.toLocaleString()}</span>
                 </div>
                 <div className="rs-list-cell rs-list-cell--hide-sm">
-                  <span className="rs-list-coin rs-list-coin--violet">{user.rCoin.toLocaleString()}</span>
+                  <span className="rs-list-coin rs-list-coin--violet">{user.reseller_coins.toLocaleString()}</span>
                 </div>
                 <div className="rs-list-cell">
                   <span className="rs-role-badge" style={ir
@@ -594,11 +569,11 @@ export default function MakeReseller() {
                 </div>
                 <div className="rs-list-cell rs-list-cell--right rs-list-actions">
                   <button className="rs-coin-btn rs-coin-btn--plus rs-coin-btn--sm"
-                    disabled={il} onClick={() => openCoinModal(user,"inc")} title="Add coins">
+                    disabled={il} onClick={() => openCoinModal(user,"inc")} title="Add credits">
                     {il ? <span className="rs-btn-spin"/> : "+"}
                   </button>
                   <button className="rs-coin-btn rs-coin-btn--minus rs-coin-btn--sm"
-                    disabled={il} onClick={() => openCoinModal(user,"dec")} title="Deduct coins">
+                    disabled={il} onClick={() => openCoinModal(user,"dec")} title="Deduct credits">
                     {il ? <span className="rs-btn-spin"/> : "−"}
                   </button>
                   <button className={`rs-action-btn rs-action-btn--sm ${ir?"is-demote":"is-promote"}`}
