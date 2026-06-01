@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Parse from "../../parseConfig";
 
 const PAGE_SIZE = 25;
@@ -154,9 +154,72 @@ function mapUser(u) {
     can_use_using_party_theme:   !!u.get("can_use_using_party_theme"),
     list_of_images:              listImgs,
     isreseller:                  !!u.get("isreseller"),
+    my_obtained_items:           u.get("my_obtained_items") || [],
+    reseller_coins:              u.get("reseller_coins") || 0,
+    reseller_whatsAppnumber:     u.get("reseller_whatsAppnumber") || "",
     isViewer:                    !!u.get("isViewer"),
     Room_priority:               !!u.get("Room_priority"),
+    My_obtained_frame_link:      u.get("My_obtained_frame_link") || "",
   };
+}
+
+/* ════════════════════════════════
+   SVGA PREVIEW COMPONENT
+   Renders .svga files using canvas
+   Falls back to img/video for others
+════════════════════════════════ */
+function SvgaPreview({ url, size = 56 }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!url || !canvasRef.current) return;
+    const isSvga = url.toLowerCase().includes(".svga");
+    if (!isSvga) return;
+
+    let player = null;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const mod = await import("svga.lite").catch(() => null);
+        if (!mod || cancelled) return;
+        const { Parser, Player } = mod;
+        const parser = new Parser();
+        const data = await parser.load(url);
+        if (cancelled) return;
+        player = new Player(canvasRef.current);
+        await player.mount(data);
+        if (cancelled) { player.destroy(); return; }
+        player.start();
+      } catch (e) {
+        console.warn("SVGA render failed:", e.message);
+      }
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+      if (player) { try { player.destroy(); } catch (_) {} }
+    };
+  }, [url]);
+
+  if (!url) return <span className="text-slate-600 text-xl">🖼</span>;
+
+  const isSvga = url.toLowerCase().includes(".svga");
+  if (isSvga) {
+    return (
+      <canvas
+        ref={canvasRef}
+        width={size * 2}
+        height={size * 2}
+        style={{ width: size, height: size, objectFit: "contain" }}
+      />
+    );
+  }
+  if (url.match(/\.(mp4|webm)$/i)) {
+    return <video src={url} style={{ width: size, height: size, objectFit: "contain" }} autoPlay loop muted playsInline />;
+  }
+  return <img src={url} style={{ width: size, height: size, objectFit: "cover" }} alt="preview" />;
 }
 
 /* ════════════════════════════════
@@ -183,7 +246,7 @@ function Toast({ toast }) {
 }
 
 /* ════════════════════════════════
-   CONFIRM MODAL (generic)
+   CONFIRM MODAL
 ════════════════════════════════ */
 function ConfirmModal({ data, onClose, onConfirm, loading }) {
   if (!data) return null;
@@ -269,7 +332,7 @@ function FieldRow({ label, value, mono, onClick }) {
 }
 
 /* ════════════════════════════════
-   VIEW MODAL  (no Joined, no Updated)
+   VIEW MODAL
 ════════════════════════════════ */
 function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onToggleSuspend, askConfirm }) {
   if (!user) return null;
@@ -282,17 +345,13 @@ function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onTo
       onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="bg-[#080d1a] border border-white/10 rounded-2xl w-full max-w-2xl my-4 shadow-2xl overflow-hidden"
         style={{ animation:"fadeUp 0.25s ease" }}>
-
-        {/* Banner */}
         <div className="relative h-24 overflow-hidden"
           style={{ background:"linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#0f172a 100%)" }}>
           <div className="absolute inset-0" style={{ background:`radial-gradient(circle at 30% 50%,${clr}30,transparent 65%)` }} />
           <button onClick={onClose}
             className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-400 hover:text-white transition-all">✕</button>
         </div>
-
         <div className="px-6 pb-6 -mt-12">
-          {/* Avatar row */}
           <div className="flex items-end gap-4 mb-5">
             <div className="relative flex-shrink-0">
               {user.avatar
@@ -324,8 +383,6 @@ function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onTo
               )}
             </div>
           </div>
-
-          {/* Two column — Joined & Updated REMOVED */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-2 mt-1">Identity</p>
@@ -360,16 +417,14 @@ function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onTo
               <FieldRow label="Object ID"   value={user.objectId}  mono onClick={() => copyText(user.objectId, showToast)} />
             </div>
           </div>
-
-          {/* Cosmetics */}
           {(user.using_avatar_frame_url||user.using_entrance_effect_url||user.using_party_theme_url) && (
             <div className="mt-5 pt-4 border-t border-white/6">
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Cosmetics</p>
               <div className="flex gap-3 flex-wrap">
                 {user.using_avatar_frame_url && (
                   <div className="bg-white/5 rounded-xl p-3 flex items-center gap-3 border border-white/8">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-black/30">
-                      <video src={user.using_avatar_frame_url} className="w-full h-full object-contain" autoPlay loop muted playsInline />
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-black/30 flex items-center justify-center">
+                      <SvgaPreview url={user.using_avatar_frame_url} size={40} />
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-white">Avatar Frame</p>
@@ -382,8 +437,8 @@ function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onTo
                 )}
                 {user.using_entrance_effect_url && (
                   <div className="bg-white/5 rounded-xl p-3 flex items-center gap-3 border border-white/8">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-black/30">
-                      <video src={user.using_entrance_effect_url} className="w-full h-full object-contain" autoPlay loop muted playsInline />
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-black/30 flex items-center justify-center">
+                      <SvgaPreview url={user.using_entrance_effect_url} size={40} />
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-white">Entrance Effect</p>
@@ -406,8 +461,6 @@ function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onTo
               </div>
             </div>
           )}
-
-          {/* Profile images */}
           {user.list_of_images?.length > 0 && (
             <div className="mt-5 pt-4 border-t border-white/6">
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Profile Images ({user.list_of_images.length})</p>
@@ -418,8 +471,6 @@ function ViewModal({ user, devBan, onClose, onEdit, showToast, onToggleBan, onTo
               </div>
             </div>
           )}
-
-          {/* Actions */}
           <div className="flex gap-2 mt-6 flex-wrap">
             <button onClick={() => { onClose(); onEdit(user); }}
               className="flex-1 min-w-[120px] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-all">
@@ -476,20 +527,361 @@ const iCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-3.5 py-2
 const sCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-all cursor-pointer";
 
 /* ════════════════════════════════
+   ITEM CARD — reusable card for
+   frames / effects / themes
+════════════════════════════════ */
+function ItemCard({ item, accentColor, onDelete }) {
+  return (
+    <div
+      className="relative group flex flex-col items-center gap-1.5 rounded-xl p-2.5 border transition-all cursor-default"
+      style={{
+        width: "90px",
+        background: "rgba(255,255,255,0.04)",
+        borderColor: "rgba(255,255,255,0.08)",
+      }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = accentColor + "80"}
+      onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"}
+    >
+      {/* Active badge */}
+      {item.isActive && (
+        <span className="absolute -top-1.5 -left-1.5 text-[7px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold z-10 whitespace-nowrap">
+          Active
+        </span>
+      )}
+
+      {/* Preview */}
+      <div
+        className="rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center flex-shrink-0"
+        style={{ width: 64, height: 64 }}
+      >
+        {item.url
+          ? <SvgaPreview url={item.url} size={64} />
+          : <span className="text-slate-600 text-2xl">
+              {item.type === "Avatar Frame" ? "🖼" :
+               item.type === "Entrance Effect" ? "✨" :
+               item.type === "Party Theme" ? "🎨" : "📦"}
+            </span>
+        }
+      </div>
+
+      {/* Name */}
+      <p className="text-[9px] text-slate-300 text-center truncate w-full font-medium leading-tight">
+        {item.name}
+      </p>
+
+      {/* ID */}
+      <p className="text-[7px] text-slate-600 font-mono text-center truncate w-full">
+        {item.id}
+      </p>
+
+      {/* Delete button — appears on hover */}
+      <button
+        type="button"
+        onClick={() => onDelete(item)}
+        className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 hover:bg-red-400 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+        title="Remove"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+/* ════════════════════════════════
    EDIT MODAL
 ════════════════════════════════ */
 function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }) {
-  const [user, setUser] = useState(initUser ? { ...initUser } : null);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [pwForm,    setPwForm]    = useState({ newPassword: "", confirm: "" });
-  const [pwError,   setPwError]   = useState("");
-  const [pwLoading, setPwLoading] = useState(false);
-  const [showPw,    setShowPw]    = useState(false);
+  const [user,           setUser]           = useState(initUser ? { ...initUser } : null);
+  const [showSaveConfirm,setShowSaveConfirm]= useState(false);
 
+  /* obtained items (my_obtained_items array) */
+  const [obtainedItems,  setObtainedItems]  = useState([]);
+  const [itemsLoading,   setItemsLoading]   = useState(false);
+
+  /* all frames / effects / themes fetched separately */
+  const [allCosmetics,   setAllCosmetics]   = useState({ frames:[], effects:[], themes:[] });
+  const [cosmeticsLoading, setCosmeticsLoading] = useState(false);
+
+  /* password */
+  const [pwForm,   setPwForm]   = useState({ newPassword: "", confirm: "" });
+  const [pwError,  setPwError]  = useState("");
+  const [pwLoading,setPwLoading]= useState(false);
+  const [showPw,   setShowPw]   = useState(false);
+
+  /* sync initUser → user state */
   useEffect(() => { if (initUser) setUser({ ...initUser }); }, [initUser]);
+
+  /* ── fetch my_obtained_items ── */
+  useEffect(() => {
+    const fetchItems = async () => {
+      const userItemIds = initUser?.my_obtained_items || [];
+      if (!initUser?.objectId || userItemIds.length === 0) {
+        setObtainedItems([]); return;
+      }
+      setItemsLoading(true);
+      try {
+        const mk = { useMasterKey: true };
+        let mapped = [];
+
+        /* try "item" class first */
+        try {
+          const q = new Parse.Query("item");
+          q.containedIn("objectId", userItemIds);
+          q.limit(1000);
+          const results = await q.find(mk);
+          if (results.length > 0) {
+            mapped = results.map(i => {
+              const file = i.get("file") || i.get("svga") || i.get("image") ||
+                           i.get("frame_file") || i.get("effect_file") || i.get("theme_file");
+              const typeRaw = (i.get("type") || i.get("item_type") || "").toLowerCase();
+              const type =
+                typeRaw.includes("frame")    ? "Avatar Frame"    :
+                typeRaw.includes("effect")   ? "Entrance Effect" :
+                typeRaw.includes("entrance") ? "Entrance Effect" :
+                typeRaw.includes("theme")    ? "Party Theme"     : "Item";
+              let url = null;
+              if (file && typeof file.url === "function") url = file.url();
+              else if (file?.url) url = file.url;
+              return {
+                id:    i.id,
+                type,
+                name:  i.get("name") || i.get("title") || i.id,
+                url,
+                isActive: i.id === initUser.using_avatar_frame_id || i.id === initUser.using_entrance_effect_id,
+              };
+            });
+          }
+        } catch (_) {}
+
+        /* fallback: try individual class names */
+        if (mapped.length === 0) {
+          const classMap = [
+            { cls: "AvatarFrame",   type: "Avatar Frame",    fields: ["file","svga","frame_file"] },
+            { cls: "EntranceEffect",type: "Entrance Effect", fields: ["file","svga","effect_file"] },
+            { cls: "PartyTheme",    type: "Party Theme",     fields: ["file","image","theme_file"] },
+            { cls: "Frame",         type: "Avatar Frame",    fields: ["file","svga"] },
+            { cls: "Effect",        type: "Entrance Effect", fields: ["file","svga"] },
+          ];
+          for (const { cls, type, fields } of classMap) {
+            try {
+              const q = new Parse.Query(cls);
+              q.containedIn("objectId", userItemIds);
+              q.limit(500);
+              const res = await q.find(mk);
+              res.forEach(r => {
+                let url = null;
+                for (const f of fields) {
+                  const fv = r.get(f);
+                  if (fv && typeof fv.url === "function") { url = fv.url(); break; }
+                }
+                mapped.push({
+                  id: r.id, type,
+                  name: r.get("name") || r.id,
+                  url,
+                  isActive: r.id === initUser.using_avatar_frame_id || r.id === initUser.using_entrance_effect_id,
+                });
+              });
+            } catch (_) {}
+          }
+        }
+
+        /* unknown IDs */
+        const foundIds = mapped.map(m => m.id);
+        const unknown  = userItemIds
+          .filter(id => !foundIds.includes(id))
+          .map(id => ({ id, type: "Unknown", name: id, url: null, isActive: false }));
+
+        setObtainedItems([...mapped, ...unknown]);
+      } catch (err) {
+        console.error("fetchItems:", err);
+      } finally {
+        setItemsLoading(false);
+      }
+    };
+    fetchItems();
+  }, [initUser]);
+
+  /* ── fetch ALL cosmetics for this user (frames, effects, themes) ── */
+  useEffect(() => {
+    const fetchCosmetics = async () => {
+      if (!initUser?.objectId) return;
+      setCosmeticsLoading(true);
+      try {
+        const mk  = { useMasterKey: true };
+        const uid = initUser.objectId;
+
+        /* helper to try multiple class names + query strategies */
+        const tryFetch = async (classNames, type) => {
+          for (const cls of classNames) {
+            try {
+              /* try by user objectId string */
+              const q1 = new Parse.Query(cls);
+              q1.equalTo("user_id", uid);
+              q1.limit(200);
+              const r1 = await q1.find(mk);
+              if (r1.length > 0) return { results: r1, cls, type };
+
+              /* try by uid number */
+              const q2 = new Parse.Query(cls);
+              q2.equalTo("uid", Number(initUser.uid));
+              q2.limit(200);
+              const r2 = await q2.find(mk);
+              if (r2.length > 0) return { results: r2, cls, type };
+
+              /* try by Pointer to _User */
+              const q3 = new Parse.Query(cls);
+              q3.equalTo("user", { __type:"Pointer", className:"_User", objectId: uid });
+              q3.limit(200);
+              const r3 = await q3.find(mk);
+              if (r3.length > 0) return { results: r3, cls, type };
+            } catch (_) {}
+          }
+          return { results: [], cls: null, type };
+        };
+
+        const [fRes, eRes, tRes] = await Promise.all([
+          tryFetch(["UserFrame","ObtainedFrame","user_frame","avatarFrame","AvatarFrame_user"], "Avatar Frame"),
+          tryFetch(["UserEffect","ObtainedEffect","user_effect","EntranceEffect_user","userEffect"], "Entrance Effect"),
+          tryFetch(["UserTheme","ObtainedTheme","user_theme","PartyTheme_user"], "Party Theme"),
+        ]);
+
+        const mapResults = (res, type) =>
+          res.results.map(r => {
+            const fileFields = ["file","svga","frame_file","effect_file","theme_file","image","link","svga_file"];
+            let url = null;
+            for (const f of fileFields) {
+              const fv = r.get(f);
+              if (fv && typeof fv.url === "function") { url = fv.url(); break; }
+              if (typeof fv === "string" && fv.startsWith("http")) { url = fv; break; }
+            }
+            const itemId = r.get("frame_id") || r.get("effect_id") || r.get("theme_id") || r.get("item_id") || r.id;
+            return {
+              id:        r.id,
+              itemId,
+              type,
+              name:      r.get("name") || r.get("frame_name") || r.get("title") || type,
+              url,
+              className: res.cls,
+              isActive:
+                itemId === initUser.using_avatar_frame_id ||
+                itemId === initUser.using_entrance_effect_id ||
+                r.id   === initUser.using_avatar_frame_id ||
+                r.id   === initUser.using_entrance_effect_id,
+            };
+          });
+
+        /* if no separate class found, build from current frame fields */
+        let frames  = mapResults(fRes, "Avatar Frame");
+        let effects = mapResults(eRes, "Entrance Effect");
+        const themes  = mapResults(tRes, "Party Theme");
+
+        /* fallback: use _User fields directly for current frame */
+        if (frames.length === 0 && initUser.using_avatar_frame_url) {
+          frames = [{
+            id:        "current_frame",
+            itemId:    initUser.using_avatar_frame_id,
+            type:      "Avatar Frame",
+            name:      initUser.using_avatar_frame_name || "Current Frame",
+            url:       initUser.using_avatar_frame_url,
+            className: "_User",
+            isActive:  true,
+          }];
+        }
+        if (frames.length === 0 && initUser.My_obtained_frame_link) {
+          frames.push({
+            id:        "obtained_frame_link",
+            itemId:    null,
+            type:      "Avatar Frame",
+            name:      "Obtained Frame",
+            url:       initUser.My_obtained_frame_link,
+            className: "_User",
+            isActive:  false,
+          });
+        }
+        if (effects.length === 0 && initUser.using_entrance_effect_url) {
+          effects = [{
+            id:        "current_effect",
+            itemId:    initUser.using_entrance_effect_id,
+            type:      "Entrance Effect",
+            name:      "Current Entrance Effect",
+            url:       initUser.using_entrance_effect_url,
+            className: "_User",
+            isActive:  true,
+          }];
+        }
+
+        setAllCosmetics({ frames, effects, themes });
+      } catch (err) {
+        console.error("fetchCosmetics:", err);
+      } finally {
+        setCosmeticsLoading(false);
+      }
+    };
+    fetchCosmetics();
+  }, [initUser]);
+
   if (!initUser || !user) return null;
 
   const set = (k, v) => setUser(p => ({ ...p, [k]: v }));
+
+  /* ── delete obtained item (my_obtained_items array) ── */
+  const deleteObtainedItem = async (item) => {
+    try {
+      const obj = await new Parse.Query("_User").get(user.objectId, { useMasterKey: true });
+      const current = obj.get("my_obtained_items") || [];
+      const updated = current.filter(id => id !== item.id);
+      obj.set("my_obtained_items", updated);
+      await obj.save(null, { useMasterKey: true });
+      set("my_obtained_items", updated);
+      setObtainedItems(prev => prev.filter(i => i.id !== item.id));
+      showToast("Item removed", "success");
+    } catch (err) {
+      showToast("Failed: " + err.message, "error");
+    }
+  };
+
+  /* ── delete cosmetic (frame / effect / theme from separate class) ── */
+  const deleteCosmetic = async (item, cosmeticType) => {
+    try {
+      if (item.className && item.className !== "_User") {
+        const obj = await new Parse.Query(item.className).get(item.id, { useMasterKey: true });
+        await obj.destroy({ useMasterKey: true });
+      } else {
+        /* stored on _User itself */
+        const obj = await new Parse.Query("_User").get(user.objectId, { useMasterKey: true });
+        if (item.isActive) {
+          if (cosmeticType === "Avatar Frame") {
+            obj.unset("using_avatar_frame");
+            obj.set("using_avatar_frame_id", "");
+            obj.set("can_use_using_avatar_frame", false);
+            set("using_avatar_frame_url", null);
+            set("using_avatar_frame_id", "");
+            set("can_use_using_avatar_frame", false);
+          }
+          if (cosmeticType === "Entrance Effect") {
+            obj.unset("using_entrance_effect");
+            obj.set("using_entrance_effect_id", "");
+            obj.set("can_use_entrance_effect", false);
+            set("using_entrance_effect_url", null);
+            set("using_entrance_effect_id", "");
+            set("can_use_entrance_effect", false);
+          }
+        }
+        if (item.id === "obtained_frame_link") obj.unset("My_obtained_frame_link");
+        await obj.save(null, { useMasterKey: true });
+      }
+
+      /* update local cosmetics state */
+      setAllCosmetics(prev => ({
+        frames:  prev.frames.filter(f => f.id !== item.id),
+        effects: prev.effects.filter(e => e.id !== item.id),
+        themes:  prev.themes.filter(t => t.id !== item.id),
+      }));
+      showToast("Removed successfully", "success");
+    } catch (err) {
+      showToast("Failed: " + err.message, "error");
+    }
+  };
 
   const handleAvatarUpload = async (file) => {
     if (!file) return;
@@ -506,15 +898,14 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
     || (user.avatar && typeof user.avatar.url==="function" ? user.avatar.url() : null);
 
   const saving = actionLoading === `edit_${user.objectId}`;
+
   const handlePasswordChange = async () => {
     setPwError("");
     if (!pwForm.newPassword || pwForm.newPassword.length < 6) {
-      setPwError("Password must be at least 6 characters.");
-      return;
+      setPwError("Password must be at least 6 characters."); return;
     }
     if (pwForm.newPassword !== pwForm.confirm) {
-      setPwError("Passwords do not match.");
-      return;
+      setPwError("Passwords do not match."); return;
     }
     setPwLoading(true);
     try {
@@ -524,11 +915,32 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
       setPwForm({ newPassword: "", confirm: "" });
       setShowPw(false);
       showToast("Password changed successfully", "success");
-    } catch (e) {
-      setPwError("Failed: " + e.message);
-    } finally {
-      setPwLoading(false);
-    }
+    } catch (e) { setPwError("Failed: " + e.message); }
+    finally { setPwLoading(false); }
+  };
+
+  /* ── cosmetics section render helper ── */
+  const CosmeticsGroup = ({ title, items, accentColor, cosmeticType }) => {
+    if (items.length === 0) return (
+      <p className="text-xs text-slate-600 italic py-1">No {title.toLowerCase()} found.</p>
+    );
+    return (
+      <div className="mb-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: accentColor }}>
+          {title} ({items.length})
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {items.map(item => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              accentColor={accentColor}
+              onDelete={() => deleteCosmetic(item, cosmeticType)}
+            />
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -560,7 +972,7 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
           <div className="px-6 py-5 max-h-[75vh] overflow-y-auto"
             style={{ scrollbarWidth:"thin", scrollbarColor:"rgba(255,255,255,0.1) transparent" }}>
 
-            {/* Basic Info */}
+            {/* ── Basic Info ── */}
             <EditSection title="Basic Information">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                 <EditField label="Display Name"><input className={iCls} value={user.name||""} onChange={e=>set("name",e.target.value)} placeholder="Display name" /></EditField>
@@ -588,7 +1000,7 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
               </EditField>
             </EditSection>
 
-            {/* Economy */}
+            {/* ── Economy ── */}
             <EditSection title="Economy & Credits">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4">
                 <EditField label="Coins"><input className={iCls} type="number" value={user.credit??0} onChange={e=>set("credit",Number(e.target.value))} /></EditField>
@@ -599,7 +1011,7 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
               </div>
             </EditSection>
 
-            {/* Roles — TAG as dropdown */}
+            {/* ── Roles ── */}
             <EditSection title="Roles & Designation">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                 <EditField label="Admin Role"><input className={iCls} value={user.admin_role||""} onChange={e=>set("admin_role",e.target.value)} placeholder="admin, mod…" /></EditField>
@@ -629,7 +1041,37 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
               </div>
             </EditSection>
 
-            {/* Avatar */}
+            {/* ── Reseller Settings ── */}
+            <EditSection title="Reseller Settings">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0 ${user.isreseller ? "bg-amber-500/20 text-amber-400" : "bg-slate-700 text-slate-500"}`}>
+                  ◈
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {user.isreseller ? "This user is a Reseller" : "This user is NOT a Reseller"}
+                  </p>
+                  <p className="text-xs text-slate-500">Toggle the checkbox above to change reseller status</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                <EditField label="Reseller Coins">
+                  <input className={iCls} type="number" min="0" value={user.reseller_coins??0}
+                    onChange={e=>set("reseller_coins",Number(e.target.value))} placeholder="0" />
+                </EditField>
+                <EditField label="WhatsApp Number">
+                  <input className={iCls} type="text" value={user.reseller_whatsAppnumber||""}
+                    onChange={e=>set("reseller_whatsAppnumber",e.target.value)} placeholder="+8801XXXXXXXXX" />
+                </EditField>
+              </div>
+              {user.isreseller && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
+                  <span>◈</span><span>Reseller is active — coins and WhatsApp number will be saved.</span>
+                </div>
+              )}
+            </EditSection>
+
+            {/* ── Profile Avatar ── */}
             <EditSection title="Profile Avatar">
               <div className="flex items-start gap-4">
                 <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-700 border border-slate-600 flex-shrink-0 flex items-center justify-center">
@@ -650,52 +1092,79 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
               </div>
             </EditSection>
 
-            {/* Avatar Frame — TOGGLE ONLY, no upload */}
-            <EditSection title="Avatar Frame">
-              {user.using_avatar_frame_url && (
-                <div className="flex items-center gap-3 bg-slate-700/40 rounded-xl p-3 mb-4 border border-slate-600/40">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-black/40">
-                    <video src={user.using_avatar_frame_url} className="w-full h-full object-contain" autoPlay loop muted playsInline />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">{user.using_avatar_frame_name||"Current Frame"}</p>
-                    <p className="text-xs text-slate-400 font-mono truncate">{user.using_avatar_frame_id}</p>
-                  </div>
+            {/* ══════════════════════════════════════
+                AVATAR FRAMES — ALL frames shown
+                with delete button on each
+            ══════════════════════════════════════ */}
+            <EditSection title={`Avatar Frames (${allCosmetics.frames.length})`}>
+              {cosmeticsLoading ? (
+                <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
+                  <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin flex-shrink-0" />
+                  Loading frames…
                 </div>
+              ) : (
+                <CosmeticsGroup
+                  title="Avatar Frames"
+                  items={allCosmetics.frames}
+                  accentColor="#a78bfa"
+                  cosmeticType="Avatar Frame"
+                />
               )}
-              <ToggleSwitch
-                checked={!!user.can_use_using_avatar_frame}
-                onChange={v => set("can_use_using_avatar_frame", v)}
-                labelOn="Avatar Frame Enabled"
-                labelOff="Avatar Frame Disabled"
-              />
+              <div className="pt-3 border-t border-white/5 mt-2">
+                <ToggleSwitch
+                  checked={!!user.can_use_using_avatar_frame}
+                  onChange={v => set("can_use_using_avatar_frame", v)}
+                  labelOn="Avatar Frame Enabled"
+                  labelOff="Avatar Frame Disabled"
+                />
+              </div>
             </EditSection>
 
-            {/* Entrance Effect — TOGGLE ONLY, no upload */}
-            <EditSection title="Entrance Effect">
-              {user.using_entrance_effect_url && (
-                <div className="flex items-center gap-3 bg-slate-700/40 rounded-xl p-3 mb-4 border border-slate-600/40">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-black/40">
-                    <video src={user.using_entrance_effect_url} className="w-full h-full object-contain" autoPlay loop muted playsInline />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white">Current Entrance Effect</p>
-                    <p className="text-xs text-slate-400 font-mono truncate">{user.using_entrance_effect_id}</p>
-                  </div>
+            {/* ══════════════════════════════════════
+                ENTRANCE EFFECTS — ALL effects shown
+                with delete button on each
+            ══════════════════════════════════════ */}
+            <EditSection title={`Entrance Effects (${allCosmetics.effects.length})`}>
+              {cosmeticsLoading ? (
+                <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
+                  <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin flex-shrink-0" />
+                  Loading effects…
                 </div>
+              ) : (
+                <CosmeticsGroup
+                  title="Entrance Effects"
+                  items={allCosmetics.effects}
+                  accentColor="#34d399"
+                  cosmeticType="Entrance Effect"
+                />
               )}
-              <ToggleSwitch
-                checked={!!user.can_use_entrance_effect}
-                onChange={v => set("can_use_entrance_effect", v)}
-                labelOn="Entrance Effect Enabled"
-                labelOff="Entrance Effect Disabled"
-              />
+              <div className="pt-3 border-t border-white/5 mt-2">
+                <ToggleSwitch
+                  checked={!!user.can_use_entrance_effect}
+                  onChange={v => set("can_use_entrance_effect", v)}
+                  labelOn="Entrance Effect Enabled"
+                  labelOff="Entrance Effect Disabled"
+                />
+              </div>
             </EditSection>
 
-            {/* Party Theme */}
-            <EditSection title="Party Theme">
+            {/* ── Party Theme ── */}
+            <EditSection title={`Party Themes (${allCosmetics.themes.length})`}>
+              {cosmeticsLoading ? (
+                <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
+                  <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin flex-shrink-0" />
+                  Loading themes…
+                </div>
+              ) : (
+                <CosmeticsGroup
+                  title="Party Themes"
+                  items={allCosmetics.themes}
+                  accentColor="#fbbf24"
+                  cosmeticType="Party Theme"
+                />
+              )}
               {user.using_party_theme_url && (
-                <div className="flex items-center gap-3 bg-slate-700/40 rounded-xl p-3 mb-4 border border-slate-600/40">
+                <div className="flex items-center gap-3 bg-slate-700/40 rounded-xl p-3 mb-3 border border-slate-600/40">
                   <img src={user.using_party_theme_url} className="w-12 h-12 rounded-lg object-cover" alt="party theme" />
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-white">Current Party Theme</p>
@@ -703,7 +1172,7 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-3 border-t border-white/5">
                 <EditField label="Theme ID">
                   <input className={iCls} value={user.using_party_theme_id||""} onChange={e=>set("using_party_theme_id",e.target.value)} placeholder="Party theme ID" />
                 </EditField>
@@ -718,12 +1187,76 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
                 <button type="button"
                   onClick={()=>{set("using_party_theme",null);set("using_party_theme_url","");set("using_party_theme_id","");set("can_use_using_party_theme",false);}}
                   className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600/15 border border-red-500/30 text-red-400 hover:bg-red-600/25 text-sm font-medium transition-all">
-                  🗑 Remove Party Theme
+                  🗑 Remove Current Party Theme
                 </button>
               )}
             </EditSection>
 
-            {/* Profile Images */}
+            {/* ── Obtained Items (my_obtained_items array) ── */}
+            {user.my_obtained_items?.length > 0 && (
+              <EditSection title={`Obtained Items (${user.my_obtained_items.length})`}>
+                {itemsLoading ? (
+                  <div className="flex items-center gap-2 py-3 text-slate-400 text-sm">
+                    <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin flex-shrink-0" />
+                    Loading items…
+                  </div>
+                ) : obtainedItems.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-2">Items could not be loaded from database.</p>
+                ) : (
+                  <>
+                    {["Avatar Frame","Entrance Effect","Party Theme","Item","Unknown"].map(type => {
+                      const group = obtainedItems.filter(i => i.type === type);
+                      if (group.length === 0) return null;
+                      const color =
+                        type==="Avatar Frame"    ? "#a78bfa" :
+                        type==="Entrance Effect" ? "#34d399" :
+                        type==="Party Theme"     ? "#fbbf24" :
+                        type==="Item"            ? "#60a5fa" : "#94a3b8";
+                      return (
+                        <div key={type} className="mb-4">
+                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color }}>
+                            {type} ({group.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {group.map(item => (
+                              <ItemCard
+                                key={item.id}
+                                item={item}
+                                accentColor={color}
+                                onDelete={() => deleteObtainedItem(item)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Raw ID list */}
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-2">
+                    All Item IDs ({user.my_obtained_items.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto"
+                    style={{ scrollbarWidth:"thin", scrollbarColor:"rgba(255,255,255,0.1) transparent" }}>
+                    {user.my_obtained_items.map(id => (
+                      <div key={id}
+                        className="relative group flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono text-slate-400 border transition-colors hover:border-red-500/30"
+                        style={{ background:"rgba(255,255,255,0.04)", borderColor:"rgba(255,255,255,0.08)" }}>
+                        {id}
+                        <button type="button"
+                          onClick={() => deleteObtainedItem({ id })}
+                          className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </EditSection>
+            )}
+
+            {/* ── Profile Images ── */}
             {user.list_of_images?.length > 0 && (
               <EditSection title={`Profile Images (${user.list_of_images.length})`}>
                 <div className="flex gap-2 flex-wrap">
@@ -741,107 +1274,61 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
               </EditSection>
             )}
 
-
             {/* ── Change Password ── */}
             <EditSection title="Change Password">
               <p className="text-xs text-slate-400 mb-4 leading-relaxed bg-slate-700/40 border border-slate-600/40 rounded-lg px-3 py-2">
-                🔐 This will immediately update the user's login password. The user will need to use the new password on next login.
+                🔐 This will immediately update the user's login password.
               </p>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-
-                {/* New Password */}
                 <EditField label="New Password">
                   <div className="relative">
-                    <input
-                      className={iCls}
-                      type={showPw ? "text" : "password"}
-                      placeholder="Min. 6 characters"
-                      value={pwForm.newPassword}
-                      onChange={e => setPwForm(p => ({ ...p, newPassword: e.target.value }))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw(p => !p)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm transition-colors"
-                    >
-                      {showPw ? "🙈" : "👁"}
+                    <input className={iCls} type={showPw?"text":"password"} placeholder="Min. 6 characters"
+                      value={pwForm.newPassword} onChange={e=>setPwForm(p=>({...p,newPassword:e.target.value}))} />
+                    <button type="button" onClick={()=>setShowPw(p=>!p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm transition-colors">
+                      {showPw?"🙈":"👁"}
                     </button>
                   </div>
                 </EditField>
-
-                {/* Confirm Password */}
                 <EditField label="Confirm Password">
                   <div className="relative">
-                    <input
-                      className={iCls}
-                      type={showPw ? "text" : "password"}
-                      placeholder="Repeat new password"
-                      value={pwForm.confirm}
-                      onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
-                    />
-                    {/* live match indicator */}
+                    <input className={iCls} type={showPw?"text":"password"} placeholder="Repeat new password"
+                      value={pwForm.confirm} onChange={e=>setPwForm(p=>({...p,confirm:e.target.value}))} />
                     {pwForm.confirm.length > 0 && (
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">
-                        {pwForm.newPassword === pwForm.confirm ? "✅" : "❌"}
+                        {pwForm.newPassword===pwForm.confirm?"✅":"❌"}
                       </span>
                     )}
                   </div>
                 </EditField>
-
               </div>
-
-              {/* Password strength bar */}
               {pwForm.newPassword.length > 0 && (
-                <div className="mt-2 mb-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          pwForm.newPassword.length < 6  ? "w-1/4 bg-red-500" :
-                          pwForm.newPassword.length < 10 ? "w-2/4 bg-amber-500" :
-                          pwForm.newPassword.length < 14 ? "w-3/4 bg-blue-500" :
-                                                          "w-full bg-emerald-500"
-                        }`}
-                      />
-                    </div>
-                    <span className={`text-[10px] font-semibold ${
-                      pwForm.newPassword.length < 6  ? "text-red-400"   :
-                      pwForm.newPassword.length < 10 ? "text-amber-400" :
-                      pwForm.newPassword.length < 14 ? "text-blue-400"  :
-                                                      "text-emerald-400"
-                    }`}>
-                      {pwForm.newPassword.length < 6  ? "Too Short" :
-                      pwForm.newPassword.length < 10 ? "Weak"      :
-                      pwForm.newPassword.length < 14 ? "Good"      :
-                                                        "Strong"}
-                    </span>
+                <div className="flex items-center gap-2 mt-2 mb-1">
+                  <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-300 ${
+                      pwForm.newPassword.length<6?"w-1/4 bg-red-500":
+                      pwForm.newPassword.length<10?"w-2/4 bg-amber-500":
+                      pwForm.newPassword.length<14?"w-3/4 bg-blue-500":"w-full bg-emerald-500"}`} />
                   </div>
+                  <span className={`text-[10px] font-semibold ${
+                    pwForm.newPassword.length<6?"text-red-400":
+                    pwForm.newPassword.length<10?"text-amber-400":
+                    pwForm.newPassword.length<14?"text-blue-400":"text-emerald-400"}`}>
+                    {pwForm.newPassword.length<6?"Too Short":pwForm.newPassword.length<10?"Weak":pwForm.newPassword.length<14?"Good":"Strong"}
+                  </span>
                 </div>
               )}
-
-              {/* Error message */}
               {pwError && (
                 <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-3 py-2 mt-2 flex items-center gap-2">
                   <span>⚠</span> {pwError}
                 </p>
               )}
-
-              {/* Submit button */}
-              <button
-                type="button"
-                onClick={handlePasswordChange}
-                disabled={pwLoading || !pwForm.newPassword || !pwForm.confirm}
-                className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all shadow-lg shadow-violet-500/20"
-              >
-                {pwLoading
-                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : "🔑 Update Password"
-                }
+              <button type="button" onClick={handlePasswordChange}
+                disabled={pwLoading||!pwForm.newPassword||!pwForm.confirm}
+                className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all">
+                {pwLoading?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:"🔑 Update Password"}
               </button>
             </EditSection>
-
-
 
           </div>
 
@@ -851,9 +1338,9 @@ function EditModal({ user: initUser, onClose, onSave, actionLoading, showToast }
               className="flex-1 py-2.5 rounded-xl border border-slate-600 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 transition-all text-sm font-medium">
               Cancel
             </button>
-            <button onClick={() => setShowSaveConfirm(true)} disabled={saving}
+            <button onClick={()=>setShowSaveConfirm(true)} disabled={saving}
               className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all">
-              {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "💾 Save Changes"}
+              {saving?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:"💾 Save Changes"}
             </button>
           </div>
         </div>
@@ -882,7 +1369,6 @@ export default function AllUsers() {
   const [viewUser,      setViewUser]      = useState(null);
   const [editUser,      setEditUser]      = useState(null);
   const [confirmModal,  setConfirmModal]  = useState(null);
-
 
   const showToast = useCallback((msg, type="success") => {
     setToast({ msg, type });
@@ -918,13 +1404,15 @@ export default function AllUsers() {
       else if (sort==="name") q.ascending("name");
       else q.descending("createdAt");
       q.limit(PAGE_SIZE); q.skip(pg*PAGE_SIZE);
-      q.select("uid","name","username","gender","status","email","birthday","avatar","createdAt","updatedAt",
+      q.select(
+        "uid","name","username","gender","status","email","birthday","avatar","createdAt","updatedAt",
         "device_id","is_banned","country","credit","diamonds","creditSent","diamondsTotal","total_recharged_credits",
         "bio","first_name","last_name","lastOnline","using_avatar_frame","using_avatar_frame_id",
         "can_use_using_avatar_frame","tag","user_designation","admin_role","agency_name","agency_role",
         "bkash_number","using_entrance_effect","using_entrance_effect_id","can_use_entrance_effect",
         "using_party_theme","using_party_theme_id","can_use_using_party_theme",
-        "list_of_images","isreseller","isViewer","Room_priority"
+        "list_of_images","isreseller","reseller_coins","reseller_whatsAppnumber",
+        "isViewer","Room_priority","my_obtained_items","My_obtained_frame_link"
       );
       const [batch, count] = await Promise.all([q.find(mk), countQ.count(mk)]);
       setTotalCount(count);
@@ -999,28 +1487,33 @@ export default function AllUsers() {
     if (!editedUser) return;
     setActionLoading(`edit_${editedUser.objectId}`);
     try {
-      const obj=await new Parse.Query("_User").get(editedUser.objectId,{useMasterKey:true});
-      const direct=["username","name","first_name","last_name","email","country","bio","gender",
+      const obj = await new Parse.Query("_User").get(editedUser.objectId, { useMasterKey: true });
+      const direct = [
+        "username","name","first_name","last_name","email","country","bio","gender",
         "bkash_number","tag","user_designation","admin_role","agency_name","agency_role",
         "using_avatar_frame_id","using_entrance_effect_id","using_party_theme_id",
         "can_use_using_avatar_frame","can_use_entrance_effect","can_use_using_party_theme",
-        "isreseller","isViewer","Room_priority","diamondsTotal","total_recharged_credits"];
-      direct.forEach(k=>{ if(editedUser[k]!==undefined) obj.set(k,editedUser[k]); });
-      if (editedUser.uid) obj.set("uid",Number(editedUser.uid));
-      if (editedUser.credit!==undefined) obj.set("credit",Number(editedUser.credit)||0);
-      if (editedUser.diamonds!==undefined) obj.set("diamonds",Number(editedUser.diamonds)||0);
-      if (editedUser.creditSent!==undefined) obj.set("creditSent",Number(editedUser.creditSent)||0);
-      if (editedUser.birthday) obj.set("birthday",new Date(editedUser.birthday));
-      if (editedUser.avatar===null) obj.unset("avatar");
-      else if (editedUser.avatar instanceof Parse.File) obj.set("avatar",editedUser.avatar);
-      if (editedUser.using_party_theme===null) obj.unset("using_party_theme");
-      await obj.save(null,{useMasterKey:true});
-      const updated=mapUser(obj);
-      setUsers(prev=>prev.map(u=>u.objectId===editedUser.objectId?updated:u));
-      setEditUser(null); showToast(`${editedUser.username} updated`,"success");
-    } catch(e) { showToast("Update failed: "+e.message,"error"); }
+        "isreseller","reseller_whatsAppnumber","isViewer","Room_priority",
+        "diamondsTotal","total_recharged_credits",
+      ];
+      direct.forEach(k => { if (editedUser[k] !== undefined) obj.set(k, editedUser[k]); });
+      if (editedUser.uid !== undefined)           obj.set("uid",            Number(editedUser.uid)            || 0);
+      if (editedUser.credit !== undefined)        obj.set("credit",         Number(editedUser.credit)         || 0);
+      if (editedUser.diamonds !== undefined)      obj.set("diamonds",       Number(editedUser.diamonds)       || 0);
+      if (editedUser.creditSent !== undefined)    obj.set("creditSent",     Number(editedUser.creditSent)     || 0);
+      if (editedUser.reseller_coins !== undefined)obj.set("reseller_coins", Number(editedUser.reseller_coins) || 0);
+      if (editedUser.birthday)                    obj.set("birthday",       new Date(editedUser.birthday));
+      if (editedUser.avatar === null)             obj.unset("avatar");
+      else if (editedUser.avatar instanceof Parse.File) obj.set("avatar", editedUser.avatar);
+      if (editedUser.using_party_theme === null)  obj.unset("using_party_theme");
+      await obj.save(null, { useMasterKey: true });
+      const updated = mapUser(obj);
+      setUsers(prev => prev.map(u => u.objectId === editedUser.objectId ? updated : u));
+      setEditUser(null);
+      showToast(`${editedUser.username} updated`, "success");
+    } catch(e) { showToast("Update failed: " + e.message, "error"); }
     finally { setActionLoading(null); }
-  },[showToast]);
+  }, [showToast]);
 
   const askConfirm = useCallback((data) => setConfirmModal(data), []);
   const refresh = useCallback(() => { fetchPage(page,statusFilter,search,sortBy); fetchStatCounts(); },[page,statusFilter,search,sortBy,fetchPage,fetchStatCounts]);
@@ -1082,7 +1575,6 @@ export default function AllUsers() {
     );
   }
 
-  /* ── RENDER ── */
   return (
     <div className="min-h-screen bg-[#060b14] text-slate-200 p-4 sm:p-6 lg:p-8 flex flex-col gap-5">
       <style>{`
@@ -1096,7 +1588,6 @@ export default function AllUsers() {
       <ConfirmModal data={confirmModal} onClose={()=>setConfirmModal(null)}
         onConfirm={()=>{ if(confirmModal?.action) confirmModal.action(); }}
         loading={!!actionLoading} />
-
       {viewUser && (
         <ViewModal user={viewUser} devBan={deviceBanMap[viewUser.objectId]}
           onClose={()=>setViewUser(null)} onEdit={u=>{setViewUser(null);setEditUser(u);}}
@@ -1152,7 +1643,7 @@ export default function AllUsers() {
         ))}
       </div>
 
-      {/* Toolbar — high visibility search & filter */}
+      {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex-1 min-w-[200px] relative">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 text-base pointer-events-none">⌕</span>
@@ -1183,7 +1674,6 @@ export default function AllUsers() {
         )}
       </div>
 
-      {/* Page indicator */}
       {!loading && totalPages>1 && (
         <div className="flex items-center gap-2 text-xs text-slate-400 font-mono bg-slate-800/70 border border-slate-700 rounded-xl px-4 py-2 w-fit">
           <span>Page <strong className="text-white">{page+1}</strong> of <strong className="text-white">{totalPages}</strong></span>

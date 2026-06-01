@@ -454,3 +454,127 @@
   .ls-title   {font-size:18px;}
   .ls-lm-title{font-size:16px;}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ══════════════════════════════════════════════
+   CUT ALL BAR — paste these into Streaming.css
+   (append at the bottom of your existing file)
+══════════════════════════════════════════════ */
+
+.ls-cutall-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin: 0 0 12px 0;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 10px;
+}
+
+.ls-cutall-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: rgba(239, 68, 68, 0.75);
+  text-transform: uppercase;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.ls-cutall-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .18s ease;
+  line-height: 1;
+}
+
+.ls-cutall-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
+
+.ls-cutall-btn:active {
+  transform: translateY(0);
+}
+
+/* Audio — indigo/purple */
+.ls-cutall-btn--audio {
+  background: rgba(129, 140, 248, 0.15);
+  border-color: rgba(129, 140, 248, 0.4);
+  color: #a5b4fc;
+}
+.ls-cutall-btn--audio:hover {
+  background: rgba(129, 140, 248, 0.28);
+  border-color: rgba(129, 140, 248, 0.7);
+}
+
+/* Video — blue */
+.ls-cutall-btn--video {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+}
+.ls-cutall-btn--video:hover {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+/* Multi — cyan */
+.ls-cutall-btn--multi {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.4);
+  color: #22d3ee;
+}
+.ls-cutall-btn--multi:hover {
+  background: rgba(6, 182, 212, 0.28);
+  border-color: rgba(6, 182, 212, 0.7);
+}
+
+/* Cut ALL — red/danger */
+.ls-cutall-btn--all {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+  margin-left: auto;
+}
+.ls-cutall-btn--all:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.8);
+}
+
+.ls-cutall-ct {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.12);
+  font-size: 10px;
+  font-weight: 700;
+}
