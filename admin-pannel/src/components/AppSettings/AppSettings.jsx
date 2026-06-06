@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Parse from "../../parseConfig";
 import "./AppSettings.css";
+import PhoneSizePicker from "./Phonesizepicker";
 
 /* ═══════════════════════════════════════════════════
    Parse class: AppSettings (single record)
@@ -110,7 +111,7 @@ function MediaCard({ label, hint, fileObj, fieldKey, onUpload, uploading }) {
 }
 
 /* ── Game row / card ── */
-function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown }) {
+function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown, onSizePick }) {
   const imgUrl = game.image || "";
   return (
     <div className={`as-game ${game.active ? "" : "as-game--inactive"}`}>
@@ -137,6 +138,58 @@ function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown }
         <div className="as-game-order">
           <button className="as-icon-btn" disabled={idx === 0} onClick={() => onMoveUp(idx)} title="Move up">↑</button>
           <button className="as-icon-btn" disabled={idx === total - 1} onClick={() => onMoveDown(idx)} title="Move down">↓</button>
+
+
+          <button
+            className="as-icon-btn"
+            onClick={() => onSizePick(idx)}
+            title={`Screen size: ${Math.round((game.size ?? 1) * 100)}%`}
+            style={{
+              width: "50%",
+              borderRadius: 10,
+              fontSize: 11,
+              fontWeight: 900,
+              color: "white",
+              letterSpacing: "0.03em",
+              background: "rgba(99,102,241,0.08)",
+              border: "2px solid transparent",
+              backgroundImage: `
+                linear-gradient(rgba(99,102,241,0.08), rgba(99,102,241,0.08)),
+                conic-gradient(from var(--angle,0deg),
+                  #6366f1, #f59e0b, #10b981, #f43f5e, #06b6d4, #a855f7, #6366f1)
+              `,
+              backgroundOrigin: "border-box",
+              // backgroundClip: "padding-box, border-box",
+              animation: "borderSpin 2.5s linear infinite",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 0,
+              transition: "transform .15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
+            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+          >
+            <span style={{ fontSize: 13 }}></span>
+            <span>View:</span>
+            <span style={{
+              // padding: "1px 6px",
+              borderRadius: 20,
+              background: "rgba(99,102,241,0.2)",
+              border: "1px solid rgba(99,102,241,0.4)",
+              fontSize: 10,
+              fontWeight: 900,
+              color: "white",
+            }}>
+              {Math.round((game.size ?? 1) * 100)}%
+            </span>
+          </button>
+
+
+
+
+
           <button className="as-icon-btn as-icon-btn--red" onClick={() => onDelete(idx)} title="Delete">🗑</button>
         </div>
       </div>
@@ -196,11 +249,14 @@ export default function AppSettings() {
   const [tab,             setTab]             = useState("general");
   const [showCreds,       setShowCreds]       = useState(false);
   const [unsaved,         setUnsaved]         = useState(false);
+  const [sizePicker,      setSizePicker]      = useState(null);
 
   /* form state */
   const [appVersion,       setAppVersion]       = useState("");
   const [appLogo,          setAppLogo]          = useState(null);
   const [audioBg,          setAudioBg]          = useState(null);
+  const [audioSeat,        setAudioSeat]        = useState(null);
+const [multiBg,          setMultiBg]          = useState(null);
   const [games,            setGames]            = useState([]);
   const [agoraList,        setAgoraList]        = useState([]); //lastly added for multiple agora support, will be saved as  array of objects [{appId, certificate}]
 
@@ -251,6 +307,8 @@ export default function AppSettings() {
         );
         setAppLogo(obj.get("appLogo") || null);
         setAudioBg(obj.get("audiobg") || null);
+        setAudioSeat(obj.get("audio_seat") || null);
+        setMultiBg(obj.get("multibg") || null);
         setGames(JSON.parse(JSON.stringify(obj.get("AllGames") || [])));
         setTimeout(() => { initialized.current = true; }, 100);
       } catch (e) { showToast("Load failed: " + e.message, "error"); }
@@ -264,7 +322,7 @@ export default function AppSettings() {
   useEffect(() => {
     if (!initialized.current) return;
     setUnsaved(true);
-  }, [appVersion, agoraList, appLogo, audioBg, games]);
+    }, [appVersion, agoraList, appLogo, audioBg, audioSeat, multiBg, games]);
 
   /* ── Upload ── */
   const handleUpload = async (field, file) => {
@@ -274,6 +332,8 @@ export default function AppSettings() {
       await pf.save({ useMasterKey: true });
       if (field === "appLogo") setAppLogo(pf);
       if (field === "audiobg") setAudioBg(pf);
+      if (field === "audio_seat") setAudioSeat(pf);
+      if (field === "multibg")    setMultiBg(pf);
       showToast("File uploaded ✓", "success");
     } catch (e) { showToast("Upload failed: " + e.message, "error"); }
     finally { setUploading(null); }
@@ -288,6 +348,8 @@ export default function AppSettings() {
       record.set("AgoraCredentials", agoraList);
       if (appLogo) record.set("appLogo", appLogo);
       if (audioBg) record.set("audiobg", audioBg);
+      if (audioSeat) record.set("audio_seat", audioSeat);
+      if (multiBg)   record.set("multibg", multiBg);
       record.set("AllGames", games);
       await record.save(null, { useMasterKey: true });
       setUnsaved(false);
@@ -313,6 +375,8 @@ export default function AppSettings() {
     );
     setAppLogo(record.get("appLogo") || null);
     setAudioBg(record.get("audiobg") || null);
+    setAudioSeat(record.get("audio_seat") || null);
+    setMultiBg(record.get("multibg") || null);
     setGames(JSON.parse(JSON.stringify(record.get("AllGames") || [])));
     setUnsaved(false);
     setTimeout(() => { initialized.current = true; }, 100);
@@ -357,6 +421,7 @@ export default function AppSettings() {
   );
 
   return (
+    <>
     <div className="as-root">
       <Toast toast={toast} />
 
@@ -442,6 +507,22 @@ export default function AppSettings() {
                 hint="Background image shown in audio/voice rooms"
                 fileObj={audioBg}
                 fieldKey="audiobg"
+                onUpload={handleUpload}
+                uploading={uploading}
+              />
+              <MediaCard
+                label="Audio Seat"
+                hint="Mic seat icon shown in audio rooms"
+                fileObj={audioSeat}
+                fieldKey="audio_seat"
+                onUpload={handleUpload}
+                uploading={uploading}
+              />
+              <MediaCard
+                label="Multi Room Background"
+                hint="Background image shown in multi-host rooms"
+                fileObj={multiBg}
+                fieldKey="multibg"
                 onUpload={handleUpload}
                 uploading={uploading}
               />
@@ -542,10 +623,11 @@ export default function AppSettings() {
                     onDelete={gameDelete}
                     onMoveUp={gameMoveUp}
                     onMoveDown={gameMoveDown}
+                    onSizePick={(i) => setSizePicker({ idx: i, game: games[i] })}
                   />
                 ))}
               </div>
-            )}
+            )}  
           </Section>
         )}
 
@@ -562,5 +644,18 @@ export default function AppSettings() {
         </div>
       </div>
     </div>
+
+      {sizePicker && (
+      <PhoneSizePicker
+        game={sizePicker.game}
+        onClose={() => setSizePicker(null)}
+        onSave={(newSize) => {
+          gameChange(sizePicker.idx, "size", newSize);
+          setSizePicker(null);
+          showToast(`✓ ${sizePicker.game.name} screen set to ${Math.round(newSize * 100)}%`);
+        }}
+      />
+    )}
+    </>
   );
 }

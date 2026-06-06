@@ -63,6 +63,9 @@ import Profile from "./Pages/Profile";
 import GiftHistoryPage from './Pages/GiftHistory';
 import CoinHistoryPage from './Pages/CoinHistory';
 
+import { StreamingProvider } from "../src/components/LiveStreaming/StreamingContext";
+
+
 
 
 
@@ -73,7 +76,7 @@ function App() {
 
 
   return (
-
+    <StreamingProvider>
     <Routes>
 
       {/* LOGIN ROUTE */}
@@ -220,6 +223,7 @@ function App() {
       } />
 
     </Routes>
+    </StreamingProvider>
 
   );
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
+import Version from "../Version"
 
 function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }) {
   const [openSub, setOpenSub] = useState(null);
@@ -243,6 +244,11 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
             </div>
           ))}
         </nav>
+
+
+        <Version/>
+
+
       </aside>
     </>
   );
