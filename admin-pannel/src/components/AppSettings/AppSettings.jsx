@@ -743,18 +743,16 @@ function MediaCard({ label, hint, fileObj, fieldKey, onUpload, uploading }) {
 /* ── Game row / card ── */
 function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown, onSizePick }) {
   const imgUrl = game.image || "";
+  const gameSize = game.size ?? 1;
   return (
     <div className={`as-game ${game.active ? "" : "as-game--inactive"}`}>
       <div className="as-game-top">
-        {/* Game image preview */}
         <div className="as-game-thumb">
           {imgUrl
             ? <img src={imgUrl} alt={game.name} className="as-game-thumb-img" />
             : <div className="as-game-thumb-ph">🎮</div>
           }
         </div>
-
-        {/* ID + Status */}
         <div className="as-game-id-col">
           <span className="as-game-id">#{game.id}</span>
           <button
@@ -763,16 +761,13 @@ function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown, 
             {game.active ? "● Active" : "○ Off"}
           </button>
         </div>
-
-        {/* Move + Delete */}
         <div className="as-game-order">
           <button className="as-icon-btn" disabled={idx === 0} onClick={() => onMoveUp(idx)} title="Move up">↑</button>
           <button className="as-icon-btn" disabled={idx === total - 1} onClick={() => onMoveDown(idx)} title="Move down">↓</button>
-
           <button
             className="as-icon-btn"
             onClick={() => onSizePick(idx)}
-            title={`Screen size: ${Math.round((game.size ?? 1) * 100)}%`}
+            title={`Screen size: ${Math.round(gameSize * 100)}%`}
             style={{
               width: "50%",
               borderRadius: 10,
@@ -809,14 +804,12 @@ function GameCard({ game, idx, total, onChange, onDelete, onMoveUp, onMoveDown, 
               fontWeight: 900,
               color: "white",
             }}>
-              {Math.round((game.size ?? 1) * 100)}%
+              {Math.round(gameSize * 100)}%
             </span>
           </button>
-
           <button className="as-icon-btn as-icon-btn--red" onClick={() => onDelete(idx)} title="Delete">🗑</button>
         </div>
       </div>
-
       <div className="as-game-fields">
         <div className="as-game-row">
           <div className="as-game-field">
@@ -869,7 +862,6 @@ export default function AppSettings() {
   const [uploading, setUploading] = useState(null);
   const [toast, setToast] = useState(null);
   const [tab, setTab] = useState("general");
-  const [showCreds, setShowCreds] = useState(false);
   const [unsaved, setUnsaved] = useState(false);
   const [sizePicker, setSizePicker] = useState(null);
 
@@ -880,18 +872,18 @@ export default function AppSettings() {
   const [audioSeat, setAudioSeat] = useState(null);
   const [multiBg, setMultiBg] = useState(null);
   const [games, setGames] = useState([]);
+  // Agora fields - using exact Parse column names: AgoraAppID and AgoraAppCertificate
   const [agoraAppId, setAgoraAppId] = useState("");
   const [agoraAppCertificate, setAgoraAppCertificate] = useState("");
 
   const initialized = useRef(false);
 
-  // ── Toast helper (defined BEFORE useEffect that uses it) ──
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  /* ── Load ── */
+  /* ── Load settings from Parse ── */
   useEffect(() => {
     (async () => {
       try {
@@ -904,13 +896,21 @@ export default function AppSettings() {
         }
         setRecord(obj);
         setAppVersion(obj.get("appVersion") || "");
-        setAgoraAppId(obj.get("AgoraAppId") || "");
+        // FIXED: Use correct field name "AgoraAppID" (capital D)
+        setAgoraAppId(obj.get("AgoraAppID") || "");
         setAgoraAppCertificate(obj.get("AgoraAppCertificate") || "");
         setAppLogo(obj.get("appLogo") || null);
         setAudioBg(obj.get("audiobg") || null);
         setAudioSeat(obj.get("audio_seat") || null);
         setMultiBg(obj.get("multibg") || null);
-        setGames(JSON.parse(JSON.stringify(obj.get("AllGames") || [])));
+        
+        const loadedGames = (obj.get("AllGames") || []).map(g => ({
+          ...g,
+          size: g.size ?? 1,
+          active: g.active ?? true,
+        }));
+        setGames(loadedGames);
+        
         setTimeout(() => { initialized.current = true; }, 100);
       } catch (e) { 
         showToast("Load failed: " + e.message, "error"); 
@@ -926,7 +926,7 @@ export default function AppSettings() {
     setUnsaved(true);
   }, [appVersion, agoraAppId, agoraAppCertificate, appLogo, audioBg, audioSeat, multiBg, games]);
 
-  /* ── Upload ── */
+  /* ── File upload handler ── */
   const handleUpload = async (field, file) => {
     setUploading(field);
     try {
@@ -944,13 +944,14 @@ export default function AppSettings() {
     }
   };
 
-  /* ── Save ── */
+  /* ── Save all settings to Parse ── */
   const handleSave = async () => {
     if (!record) return;
     setSaving(true);
     try {
       record.set("appVersion", appVersion.trim());
-      record.set("AgoraAppId", agoraAppId);
+      // FIXED: Use correct field name "AgoraAppID"
+      record.set("AgoraAppID", agoraAppId);
       record.set("AgoraAppCertificate", agoraAppCertificate);
       if (appLogo) record.set("appLogo", appLogo);
       if (audioBg) record.set("audiobg", audioBg);
@@ -968,24 +969,29 @@ export default function AppSettings() {
     }
   };
 
-  /* ── Reset ── */
+  /* ── Reset to last saved values ── */
   const handleReset = () => {
     if (!record) return;
     initialized.current = false;
     setAppVersion(record.get("appVersion") || "");
-    setAgoraAppId(record.get("AgoraAppId") || "");
+    setAgoraAppId(record.get("AgoraAppID") || "");
     setAgoraAppCertificate(record.get("AgoraAppCertificate") || "");
     setAppLogo(record.get("appLogo") || null);
     setAudioBg(record.get("audiobg") || null);
     setAudioSeat(record.get("audio_seat") || null);
     setMultiBg(record.get("multibg") || null);
-    setGames(JSON.parse(JSON.stringify(record.get("AllGames") || [])));
+    const resetGames = (record.get("AllGames") || []).map(g => ({
+      ...g,
+      size: g.size ?? 1,
+      active: g.active ?? true,
+    }));
+    setGames(resetGames);
     setUnsaved(false);
     setTimeout(() => { initialized.current = true; }, 100);
     showToast("Reset to saved values", "info");
   };
 
-  /* ── Games ── */
+  /* ── Game management helpers ── */
   const gameChange = (i, key, val) => setGames(g => g.map((x, j) => j === i ? { ...x, [key]: val } : x));
   const gameDelete = (i) => { 
     setGames(g => g.filter((_, j) => j !== i)); 
@@ -1101,7 +1107,6 @@ export default function AppSettings() {
                   <Input value={record.createdAt ? new Date(record.createdAt).toLocaleString() : "—"} mono readOnly />
                 </Field>
               </div>
-
               <div className="as-info-box">
                 <div className="as-info-box-icon">📱</div>
                 <div>
@@ -1152,7 +1157,7 @@ export default function AppSettings() {
             </Section>
           )}
 
-          {/* ══ AGORA ══ */}
+          {/* ══ AGORA (only two input fields, using AgoraAppID and AgoraAppCertificate) ══ */}
           {tab === "agora" && (
             <Section icon="📡" title="Agora Configuration" desc="Agora App ID and Certificate for video/voice calls">
               <div className="as-fields">
@@ -1181,6 +1186,9 @@ export default function AppSettings() {
                     <p style={{ fontSize: "12px", marginTop: "8px", color: "#f59e0b" }}>
                       ⚠️ Keep your App Certificate secure. Never expose it to clients.
                     </p>
+                    <p style={{ fontSize: "12px", marginTop: "4px", color: "#6b7280" }}>
+                      ✅ Stored in Parse fields: <code>AgoraAppID</code> and <code>AgoraAppCertificate</code>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1197,7 +1205,6 @@ export default function AppSettings() {
                 <button className="as-btn as-btn--primary" onClick={gameAdd}>+ Add Game</button>
               }
             >
-              {/* Summary pills */}
               <div className="as-games-summary">
                 <span className="as-pill as-pill--green">✓ {games.filter(g=>g.active).length} active</span>
                 <span className="as-pill as-pill--red">✕ {games.filter(g=>!g.active).length} inactive</span>

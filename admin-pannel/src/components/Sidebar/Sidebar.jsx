@@ -13,7 +13,7 @@ function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen })
 
     {
       title: 'Manager',
-      icon: 'fas fa-user-shield',
+      icon: 'fas fa-user-shield', 
       label: 'Make/Remove Manager', path: '/manager/create' 
       
     },
