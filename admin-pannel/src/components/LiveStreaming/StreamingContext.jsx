@@ -118,11 +118,21 @@ export function StreamingProvider({ children }) {
           name: "listener",
         };
 
-        const response = await fetch("/gravix-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        // const response = await fetch("/gravix-token", {
+        //   method: "POST",
+        //   headers: { "Content-Type": "application/json" },
+        //   body: JSON.stringify(payload),
+        // });
+        // Use proxy in development, direct URL in production (after CORS is sorted)
+const tokenUrl = import.meta.env.DEV 
+  ? "/gravix-token" 
+  : "https://token.gravixcloud.com/v1/token";
+
+const response = await fetch(tokenUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
 
         if (!response.ok) {
           const errorText = await response.text();
