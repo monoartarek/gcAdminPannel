@@ -30,13 +30,13 @@ export default defineConfig({
       parse: "parse/dist/parse.js",
     },
   },
-  server: {
-    proxy: {
-      '/gravix-token': {
-        target: 'https://token.gravixcloud.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/gravix-token/, '/v1/token'),
-      },
+server: {
+  proxy: {
+    '/gravix-token': {
+      target: 'https://token.gravixcloud.com',
+      changeOrigin: true,
+      rewrite: (path) => path.replace(/^\/gravix-token/, '/v1/token'),
     },
   },
+},
 })

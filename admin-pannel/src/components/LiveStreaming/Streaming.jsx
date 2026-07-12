@@ -584,11 +584,11 @@ export default function LiveStreaming(){
                       :(
                         <div className="ls-stage-load">
                           <div className="ls-stage-hero-wrap">
-                            <div className="ls-stage-hero-ring"/>
-                            {hostImg?<img src={hostImg} alt={hostName} className="ls-stage-hero-img"/>:<div className="ls-stage-hero-av">{ini(hostName)}</div>}
+                            {/* <div className="ls-stage-hero-ring"/> */}
+                            {/* {hostImg?<img src={hostImg} alt={hostName} className="ls-stage-hero-img"/>:<div className="ls-stage-hero-av">{ini(hostName)}</div>} */}
                           </div>
-                          <p className="ls-stage-hero-name">{hostName}</p>
-                          <div className="ls-stage-load-pill"><span className="ls-spin"/><span>Connecting video stream…</span></div>
+                          {/* <p className="ls-stage-hero-name">{hostName}</p> */}
+                          {/* <div className="ls-stage-load-pill"><span className="ls-spin"/><span>Connecting video stream…</span></div> */}
                         </div>
                       )
                     }
