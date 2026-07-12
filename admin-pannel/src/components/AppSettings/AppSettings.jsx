@@ -246,9 +246,11 @@ export default function AppSettings() {
   const [agoraAppId, setAgoraAppId] = useState("");
   const [agoraAppCertificate, setAgoraAppCertificate] = useState("");
 
+
   //for gravics cloud 
   const [gravixApiKey, setGravixApiKey] = useState("");
   const [gravixApiSecret, setGravixApiSecret] = useState("");
+  const [showGravixSecret, setShowGravixSecret] = useState(false);
 
   const initialized = useRef(false);
 
@@ -275,8 +277,8 @@ export default function AppSettings() {
         setAgoraAppCertificate(obj.get("AgoraAppCertificate") || "");
 
         //gravix 
-        setGravixApiKey(obj.get("gravixApiKey") || "");
-        setGravixApiSecret(obj.get("gravixApiSecret") || "");
+        setGravixApiKey(obj.get("GravixApiKey") || "");
+        setGravixApiSecret(obj.get("GravixApiSecret") || "");
         setAppLogo(obj.get("appLogo") || null);
         setAudioBg(obj.get("audiobg") || null);
         setAudioSeat(obj.get("audio_seat") || null);
@@ -332,8 +334,8 @@ export default function AppSettings() {
       record.set("AgoraAppID", agoraAppId);
       record.set("AgoraAppCertificate", agoraAppCertificate);
       //gravix
-      record.set("gravixApiKey", gravixApiKey);
-      record.set("gravixApiSecret", gravixApiSecret);
+record.set("GravixApiKey", gravixApiKey);
+record.set("GravixApiSecret", gravixApiSecret);
       if (appLogo) record.set("appLogo", appLogo);
       if (audioBg) record.set("audiobg", audioBg);
       if (audioSeat) record.set("audio_seat", audioSeat);
@@ -357,8 +359,8 @@ export default function AppSettings() {
     setAppVersion(record.get("appVersion") || "");
     setAgoraAppId(record.get("AgoraAppID") || "");
     setAgoraAppCertificate(record.get("AgoraAppCertificate") || "");
-    setGravixApiKey(record.get("gravixApiKey") || "");
-    setGravixApiSecret(record.get("gravixApiSecret") || "");
+setGravixApiKey(record.get("GravixApiKey") || "");
+setGravixApiSecret(record.get("GravixApiSecret") || "");
     setAppLogo(record.get("appLogo") || null);
     setAudioBg(record.get("audiobg") || null);
     setAudioSeat(record.get("audio_seat") || null);
@@ -562,7 +564,7 @@ export default function AppSettings() {
                   />
                 </Field>
                 
-                <div className="as-info-box">
+                {/* <div className="as-info-box">
                   <div className="as-info-box-icon">📡</div>
                   <div>
                     <strong>Agora Configuration</strong>
@@ -574,11 +576,10 @@ export default function AppSettings() {
                       ✅ Stored in Parse fields: <code>AgoraAppID</code> and <code>AgoraAppCertificate</code>
                     </p>
                   </div>
-                </div>
+                </div> */}
               </div>
             </Section>
           )}  
-
 
 
 {tab === "gravix" && (
@@ -591,30 +592,40 @@ export default function AppSettings() {
           placeholder="gck_..."
         />
       </Field>
-      <Field label="API Secret" hint="Your GravixCloud API secret">
-        <Input
-          type="password"
-          value={gravixApiSecret}
-          onChange={setGravixApiSecret}
-          placeholder="API secret"
-        />
-      </Field>
-      <div className="as-info-box">
-        <div className="as-info-box-icon">🔐</div>
-        <div>
-          <strong>GravixCloud Private Streaming</strong>
-          <p>These credentials are used to generate tokens for your private RTC rooms.</p>
-          <p style={{ fontSize: "12px", marginTop: "8px", color: "#f59e0b" }}>
-            ⚠️ Keep your API secret secure. Never expose it to clients.
-          </p>
-          <p style={{ fontSize: "12px", marginTop: "4px", color: "#6b7280" }}>
-            Token endpoint: <code>https://token.gravixcloud.com/v1/token</code>
-          </p>
+
+      <Field label="API Secret" hint="Your GravixCloud API secret (for token generation)">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Input
+            type={showGravixSecret ? "text" : "password"}
+            value={gravixApiSecret}
+            onChange={setGravixApiSecret}
+            placeholder="API secret"
+            style={{ flex: 1 }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowGravixSecret(!showGravixSecret)}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "18px",
+              padding: "8px",
+              color: "rgba(255,255,255,0.6)",
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = "#fff"}
+            onMouseLeave={(e) => e.currentTarget.style.color = "rgba(255,255,255,0.6)"}
+          >
+            {showGravixSecret ? "👁️" : "👁️‍🗨️"}
+          </button>
         </div>
-      </div>
+      </Field>
+
+
     </div>
   </Section>
-)}     
+)}
 
           {/* ══ GAMES ══ */}
           {tab === "games" && (
